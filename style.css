@@ -1,0 +1,64 @@
+/* General Styling */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f3f4f6; /* bg-gray-100 */
+    color: #1f2937; /* text-gray-800 */
+}
+
+/* Card Component */
+.card {
+    background-color: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    transition: all 0.3s ease-in-out;
+}
+
+/* Screen Animation */
+.screen {
+    display: none;
+    animation: fadeIn 0.5s ease-in-out;
+    width: 100%;
+}
+.screen.active {
+    display: block;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Button Variants */
+.mode-btn.selected {
+    background-color: #4f46e5; /* indigo-600 */
+    color: white;
+}
+.difficulty-btn.selected {
+    background-color: #4f46e5; /* indigo-600 */
+    color: white;
+    box-shadow: 0 4px 14px 0 rgb(79 70 229 / 39%);
+}
+.choice-btn {
+    border: 2px solid #e5e7eb; /* border-gray-200 */
+    transition: all 0.2s ease-in-out;
+}
+.choice-btn:hover, .choice-btn.selected {
+    border-color: #4f46e5; /* border-indigo-600 */
+    background-color: #eef2ff; /* bg-indigo-50 */
+}
+
+/* File Upload Area */
+#file-upload-area {
+    border: 2px dashed #d1d5db;
+    transition: all 0.2s ease-in-out;
+}
+#file-upload-area.drag-over {
+    border-color: #4f46e5;
+    background-color: #eef2ff;
+}
+
+/* Deck Styling */
+.deck-card {
+    border-left: 4px solid #4f46e5; /* border-indigo-600 */
+    background-color: #f9fafb; /* bg-gray-50 */
+}
