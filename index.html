@@ -78,26 +78,21 @@
     <!-- ===================================================================== -->
     <!-- KONTAINER UTAMA APLIKASI (SINGLE PAGE APP) -->
     <!-- ===================================================================== -->
-    <main id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
-        <!-- Semua "layar" (screen) akan disuntikkan di sini oleh JavaScript -->
-    </main>
+    <main id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4"></main>
 
     <!-- ===================================================================== -->
     <!-- FOOTER GLOBAL -->
     <!-- ===================================================================== -->
     <footer class="w-full text-center p-6 text-gray-500 text-sm bg-white border-t">
         <p>&copy; 2025 Berotak Senku. Dibuat untuk mempercepat proses belajar.</p>
-        <div class="mt-2">
-            <a href="#/about" class="hover:text-indigo-600">Tentang Kami</a> | 
-            <a href="#/privacy" class="hover:text-indigo-600">Kebijakan Privasi</a> |
-            <a href="https://github.com/your-repo" target="_blank" class="hover:text-indigo-600">GitHub</a>
-        </div>
     </footer>
 
     <!-- ===================================================================== -->
     <!-- ELEMEN GLOBAL LAINNYA (MODAL, NOTIFIKASI) -->
     <!-- ===================================================================== -->
     <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50"></div>
+    
+    <!-- Modal Pengaturan (awalnya disembunyikan) -->
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl w-11/12 max-w-md m-4">
             <div class="flex justify-between items-center mb-6">
@@ -106,7 +101,14 @@
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
+            
             <div class="space-y-6">
+                <!-- FITUR BARU: Kolom Input API Key -->
+                <div>
+                    <label for="api-key-input" class="block font-medium text-gray-700">Google AI API Key (Opsional)</label>
+                    <input type="password" id="api-key-input" class="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500" placeholder="Masukkan API Key jika proxy bermasalah">
+                    <p class="text-xs text-gray-500 mt-1">Kunci ini disimpan di browsermu saja. Kosongkan untuk menggunakan metode standar.</p>
+                </div>
                 <div>
                     <label for="theme-selector" class="block font-medium text-gray-700">Tema Aplikasi:</label>
                     <select id="theme-selector" class="w-full mt-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500">
@@ -119,7 +121,6 @@
                     <button id="clear-deck-btn" class="w-full bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition">
                         Hapus Semua Kartu di Deck
                     </button>
-                    <p class="text-xs text-gray-500 mt-1">Tindakan ini tidak dapat diurungkan.</p>
                 </div>
             </div>
         </div>
@@ -128,11 +129,6 @@
     <!-- ===================================================================== -->
     <!-- SCRIPT UTAMA APLIKASI -->
     <!-- ===================================================================== -->
-    <!-- 
-        PENTING: Memuat file js/main.js sebagai modul.
-        Ini adalah titik masuk utama untuk semua logika aplikasi.
-    -->
     <script type="module" src="./js/main.js"></script>
-    
 </body>
 </html>
