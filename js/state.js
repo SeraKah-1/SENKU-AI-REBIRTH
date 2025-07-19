@@ -31,6 +31,7 @@ export const state = {
     // State untuk pengaturan aplikasi
     settings: {
         theme: 'system', // 'light', 'dark', atau 'system'
+        apiKey: '',      // FITUR BARU: Menyimpan API Key pengguna untuk debugging
     }
 };
 
@@ -54,15 +55,9 @@ export const actions = {
             difficulty: difficulty,
         };
     },
-    
-    /**
-     * FIX: Menambahkan action yang hilang untuk menyimpan teks dari file.
-     * Ini dipanggil oleh main.js setelah file berhasil diproses.
-     */
     setSourceText(text) {
         state.quiz.sourceText = text;
     },
-
     setGeneratedData(data) {
         state.quiz.generatedData = data;
     },
@@ -114,6 +109,14 @@ export const actions = {
     setTheme(newTheme) {
         state.settings.theme = newTheme;
         document.body.dataset.theme = newTheme;
+        this.saveSettingsToStorage();
+    },
+    /**
+     * FITUR BARU: Action untuk menyimpan API Key dari input pengguna.
+     * @param {string} key - API Key yang dimasukkan pengguna.
+     */
+    setApiKey(key) {
+        state.settings.apiKey = key;
         this.saveSettingsToStorage();
     },
 
