@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-
+    <!-- Memuat file CSS Eksternal -->
     <link rel="stylesheet" href="style.css">
     
     <!-- Judul Aplikasi -->
@@ -21,7 +20,6 @@
     <!-- Open Graph (untuk Facebook, LinkedIn, dll.) -->
     <meta property="og:title" content="Berotak Senku - Asisten Belajar AI">
     <meta property="og:description" content="Buat sesi belajar interaktif dari materi apa pun, didukung oleh AI.">
-    <!-- Ganti 'your-domain.com' dan path gambar dengan milikmu -->
     <meta property="og:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Berotak+Senku">
     <meta property="og:url" content="https://your-domain.com">
     <meta property="og:type" content="website">
@@ -30,48 +28,32 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Berotak Senku - Asisten Belajar AI">
     <meta name="twitter:description" content="Buat sesi belajar interaktif dari materi apa pun, didukung oleh AI.">
-    <!-- Ganti 'your-domain.com' dan path gambar dengan milikmu -->
     <meta name="twitter:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Berotak+Senku">
 
     <!-- ===================================================================== -->
     <!-- PWA (PROGRESSIVE WEB APP) & FAVICON -->
     <!-- ===================================================================== -->
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json"> <!-- Kamu perlu membuat file manifest.json -->
-
-    <!-- Warna tema untuk address bar di mobile -->
-    <meta name="theme-color" content="#4f46e5"> <!-- Warna indigo-600 -->
-
-    <!-- Favicon (Ikon di tab browser) -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
     <link rel="icon" href="https://placehold.co/32x32/4f46e5/ffffff?text=S">
     <link rel="apple-touch-icon" href="https://placehold.co/180x180/4f46e5/ffffff?text=Senku">
 
     <!-- ===================================================================== -->
     <!-- STYLESHEET & LIBRARY PIHAK KETIGA -->
     <!-- ===================================================================== -->
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Lucide Icons -->
     <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.395.0/dist/lucide.min.js"></script>
-    
-    <!-- Library untuk membaca file .docx & .pdf -->
     <script src="https://unpkg.com/mammoth@1.5.1/mammoth.browser.min.js"></script>
     <script src="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     <script>
-        // Inisialisasi worker untuk pdf.js
         if (typeof pdfjsLib !== 'undefined') {
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
         }
     </script>
-    
-    <!-- Memuat file CSS Eksternal (jika kamu menggunakan arsitektur modular) -->
-    <!-- <link rel="stylesheet" href="style.css"> -->
 </head>
 <body class="bg-gray-100">
 
@@ -98,7 +80,6 @@
     <!-- ===================================================================== -->
     <main id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4">
         <!-- Semua "layar" (screen) akan disuntikkan di sini oleh JavaScript -->
-        <!-- Ini membuat HTML utama tetap bersih dan terstruktur -->
     </main>
 
     <!-- ===================================================================== -->
@@ -116,13 +97,7 @@
     <!-- ===================================================================== -->
     <!-- ELEMEN GLOBAL LAINNYA (MODAL, NOTIFIKASI) -->
     <!-- ===================================================================== -->
-
-    <!-- Kontainer Notifikasi Global -->
-    <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50">
-        <!-- Notifikasi akan ditambahkan di sini oleh JavaScript -->
-    </div>
-    
-    <!-- Modal Pengaturan (awalnya disembunyikan) -->
+    <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50"></div>
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl w-11/12 max-w-md m-4">
             <div class="flex justify-between items-center mb-6">
@@ -131,7 +106,6 @@
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
             </div>
-            
             <div class="space-y-6">
                 <div>
                     <label for="theme-selector" class="block font-medium text-gray-700">Tema Aplikasi:</label>
@@ -154,13 +128,11 @@
     <!-- ===================================================================== -->
     <!-- SCRIPT UTAMA APLIKASI -->
     <!-- ===================================================================== -->
-    <!-- Gunakan 'type="module"' untuk mendukung arsitektur modular -->
-    <!-- <script type="module" src="js/main.js"></script> -->
+    <!-- 
+        PENTING: Memuat file js/main.js sebagai modul.
+        Ini adalah titik masuk utama untuk semua logika aplikasi.
+    -->
+    <script type="module" src="./js/main.js"></script>
     
-    <!-- Untuk sementara, script dari kode lama bisa diletakkan di sini agar tetap berfungsi -->
-    <script>
-        // Letakkan kode JavaScript dari file lama di sini jika kamu belum memecahnya
-        // atau biarkan kosong jika kamu sudah menggunakan js/main.js
-    </script>
 </body>
 </html>
