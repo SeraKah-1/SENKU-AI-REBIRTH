@@ -9,7 +9,8 @@
 // IMPOR SEMUA MODUL YANG DIBUTUHKAN
 // =====================================================================
 // Ganti path ini dengan path file modulmu yang sebenarnya jika berbeda
-import { state } from './state.js';
+// Di awal main.js
+import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
 import * as deck from './deck.js';
