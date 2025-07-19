@@ -22,6 +22,7 @@ export const state = {
         generatedData: null,
         currentCardIndex: 0,
         score: 0,
+        sourceText: '', // Menambahkan properti untuk menyimpan teks dari file
     },
     // State yang berhubungan dengan data pengguna yang disimpan
     userData: {
@@ -35,8 +36,6 @@ export const state = {
 
 // =====================================================================
 // ACTIONS: KUMPULAN FUNGSI UNTUK MENGUBAH STATE
-// Ini adalah satu-satunya cara yang diizinkan untuk memodifikasi objek 'state'.
-// Menggunakan pola immutable untuk keamanan dan prediktabilitas.
 // =====================================================================
 export const actions = {
     // --- Actions untuk Sesi ---
@@ -55,6 +54,15 @@ export const actions = {
             difficulty: difficulty,
         };
     },
+    
+    /**
+     * FIX: Menambahkan action yang hilang untuk menyimpan teks dari file.
+     * Ini dipanggil oleh main.js setelah file berhasil diproses.
+     */
+    setSourceText(text) {
+        state.quiz.sourceText = text;
+    },
+
     setGeneratedData(data) {
         state.quiz.generatedData = data;
     },
@@ -71,6 +79,7 @@ export const actions = {
             generatedData: null,
             currentCardIndex: 0,
             score: 0,
+            sourceText: '',
         };
     },
 
@@ -79,7 +88,6 @@ export const actions = {
         const topicKey = state.quiz.topic || "Tanpa Topik";
         const oldDeck = state.userData.savedDecks[topicKey] || [];
         
-        // Mencegah duplikasi kartu di dalam deck
         if (oldDeck.some(card => card.term === cardData.term)) {
             console.log("Kartu sudah ada di deck.");
             return;
@@ -92,7 +100,7 @@ export const actions = {
                 [topicKey]: [...oldDeck, cardData]
             }
         };
-        this.saveUserDataToStorage(); // Simpan ke localStorage
+        this.saveUserDataToStorage();
     },
     clearAllDecks() {
         state.userData = {
@@ -120,22 +128,18 @@ export const actions = {
 
 // =====================================================================
 // INISIALISASI STATE
-// Fungsi ini dipanggil sekali saat aplikasi pertama kali dimuat.
 // =====================================================================
 export function init() {
-    // Muat pengaturan yang tersimpan
     const savedSettings = localStorage.getItem('senkuAppSettings');
     if (savedSettings) {
         Object.assign(state.settings, JSON.parse(savedSettings));
     }
 
-    // Muat data pengguna yang tersimpan
     const savedUserData = localStorage.getItem('senkuAppUserData');
     if (savedUserData) {
         Object.assign(state.userData, JSON.parse(savedUserData));
     }
 
-    // Terapkan tema yang tersimpan (atau default) ke DOM
     if (state.settings.theme === 'system') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         document.body.dataset.theme = prefersDark ? 'dark' : 'light';
