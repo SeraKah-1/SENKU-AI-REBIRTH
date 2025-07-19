@@ -1,64 +1,251 @@
-/* General Styling */
+/* ===================================================================== */
+/* FONDASI & TEMA WARNA (CSS VARIABLES) */
+/* ===================================================================== */
+
+/* Tema Terang (Default) */
+:root {
+  --font-sans: 'Inter', sans-serif;
+
+  /* Warna Latar */
+  --bg-primary: #f3f4f6;      /* Abu-abu terang untuk body */
+  --bg-secondary: #ffffff;   /* Putih untuk kartu, header, footer */
+  --bg-tertiary: #e5e7eb;     /* Abu-abu untuk input, tombol non-aktif */
+
+  /* Warna Teks */
+  --text-primary: #1f2937;   /* Hitam keabuan */
+  --text-secondary: #6b7280; /* Abu-abu */
+  --text-on-accent: #ffffff; /* Teks di atas warna aksen (putih) */
+
+  /* Warna Aksen (Branding) */
+  --accent-primary: #4f46e5;   /* Indigo */
+  --accent-primary-hover: #4338ca; /* Indigo lebih gelap */
+  --accent-secondary: #eef2ff;   /* Indigo sangat terang */
+  
+  /* Warna Fungsional */
+  --border-color: #d1d5db;
+  --success-color: #16a34a;   /* Hijau */
+  --error-color: #dc2626;     /* Merah */
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --shadow-color-hover: rgba(0, 0, 0, 0.15);
+}
+
+/* Tema Gelap (Dark Mode) */
+body[data-theme="dark"] {
+  /* Warna Latar */
+  --bg-primary: #111827;      /* Abu-abu sangat gelap */
+  --bg-secondary: #1f2937;   /* Abu-abu gelap */
+  --bg-tertiary: #374151;     /* Abu-abu lebih terang */
+
+  /* Warna Teks */
+  --text-primary: #f9fafb;   /* Putih keabuan */
+  --text-secondary: #9ca3af; /* Abu-abu terang */
+  
+  /* Warna Aksen */
+  --accent-primary: #6366f1;   /* Indigo lebih terang */
+  --accent-primary-hover: #818cf8; /* Indigo sangat terang */
+  --accent-secondary: #312e81;   /* Indigo gelap */
+  
+  /* Warna Fungsional */
+  --border-color: #4b5563;
+  --shadow-color: rgba(0, 0, 0, 0.25);
+  --shadow-color-hover: rgba(0, 0, 0, 0.35);
+}
+
+/* ===================================================================== */
+/* GAYA DASAR & RESET */
+/* ===================================================================== */
+
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: #f3f4f6; /* bg-gray-100 */
-    color: #1f2937; /* text-gray-800 */
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Card Component */
+/* ===================================================================== */
+/* KOMPONEN UTAMA */
+/* ===================================================================== */
+
+/* Header & Footer */
+header, footer {
+  background-color: var(--bg-secondary);
+  transition: background-color 0.3s ease;
+}
+
+/* Kartu Utama */
 .card {
-    background-color: white;
-    border-radius: 1.5rem;
-    padding: 2rem;
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    transition: all 0.3s ease-in-out;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 1.5rem;
+  padding: 2rem;
+  box-shadow: 0 10px 15px -3px var(--shadow-color);
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.3s ease;
 }
 
-/* Screen Animation */
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px var(--shadow-color-hover);
+}
+
+/* Tombol-tombol */
+.btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease-out;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+.btn-primary:hover {
+  background-color: var(--accent-primary-hover);
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+.btn-secondary:hover {
+  filter: brightness(95%);
+}
+
+/* Tombol Pilihan (Mode & Kesulitan) */
+.mode-btn, .difficulty-btn {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease-out;
+}
+
+.mode-btn.selected, .difficulty-btn.selected {
+  background-color: var(--accent-primary);
+  color: var(--text-on-accent);
+  box-shadow: 0 4px 14px 0 var(--accent-primary-hover);
+}
+
+/* Tombol Pilihan Topik */
+.choice-btn {
+  border: 2px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  transition: all 0.2s ease-out;
+}
+.choice-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px -3px var(--shadow-color);
+  border-color: var(--accent-primary);
+}
+.choice-btn.selected {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-secondary);
+}
+
+/* Input & Form */
+input[type="text"], select {
+  background-color: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  width: 100%;
+}
+
+/* ===================================================================== */
+/* AKSESIBILITAS (A11y) */
+/* ===================================================================== */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--accent-secondary);
+  border-radius: 8px;
+}
+
+/* ===================================================================== */
+/* ANIMASI & EFEK KHUSUS */
+/* ===================================================================== */
+
+/* Animasi untuk Layar */
 .screen {
-    display: none;
-    animation: fadeIn 0.5s ease-in-out;
-    width: 100%;
+  display: none;
+  animation: fadeIn 0.5s ease-in-out forwards;
 }
 .screen.active {
-    display: block;
+  display: block;
 }
 @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.98); }
-    to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-/* Button Variants */
-.mode-btn.selected {
-    background-color: #4f46e5; /* indigo-600 */
-    color: white;
+/* Animasi untuk Notifikasi */
+.notification {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  color: white;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+  animation: slide-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
 }
-.difficulty-btn.selected {
-    background-color: #4f46e5; /* indigo-600 */
-    color: white;
-    box-shadow: 0 4px 14px 0 rgb(79 70 229 / 39%);
-}
-.choice-btn {
-    border: 2px solid #e5e7eb; /* border-gray-200 */
-    transition: all 0.2s ease-in-out;
-}
-.choice-btn:hover, .choice-btn.selected {
-    border-color: #4f46e5; /* border-indigo-600 */
-    background-color: #eef2ff; /* bg-indigo-50 */
+.notification.success { background-color: var(--success-color); }
+.notification.error { background-color: var(--error-color); }
+
+.notification.fading-out {
+  animation: fade-out 0.5s ease-out forwards;
 }
 
-/* File Upload Area */
-#file-upload-area {
-    border: 2px dashed #d1d5db;
-    transition: all 0.2s ease-in-out;
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
 }
-#file-upload-area.drag-over {
-    border-color: #4f46e5;
-    background-color: #eef2ff;
+@keyframes fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.9); }
 }
 
-/* Deck Styling */
-.deck-card {
-    border-left: 4px solid #4f46e5; /* border-indigo-600 */
-    background-color: #f9fafb; /* bg-gray-50 */
+/* Efek Glassmorphism untuk Modal */
+#settings-modal {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+#settings-modal > div { /* Target div kartu di dalam modal */
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+body[data-theme="dark"] #settings-modal > div {
+  background-color: rgba(31, 41, 55, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ===================================================================== */
+/* DESAIN RESPONSIVE */
+/* ===================================================================== */
+
+/* Untuk layar mobile (di bawah 640px) */
+@media (max-width: 640px) {
+  .card {
+    padding: 1.5rem;
+  }
+  
+  /* Sembunyikan teks logo di header, tampilkan ikon saja */
+  header .sm\\:block {
+    display: none;
+  }
+  
+  /* Perkecil ukuran font judul */
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+
+  /* Pastikan modal tidak terlalu besar di layar kecil */
+  #settings-modal > div {
+    width: 90%;
+  }
 }
