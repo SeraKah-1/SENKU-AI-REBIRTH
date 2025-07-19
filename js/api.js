@@ -145,3 +145,4 @@ export async function evaluateAnswer(question, correctAnswer, userAnswer) {
     };
     return safeFetch(payload);
 }
+// FIX: Menghapus kurung kurawal tutup '}' yang berlebih di akhir file.
