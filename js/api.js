@@ -1,22 +1,25 @@
 /**
  * =====================================================================
- * File: js/api.js (VERSI AMAN)
+ * File: js/api.js (VERSI DUAL-MODE)
  * =====================================================================
  *
  * api.js: Lapisan Interaksi AI
- * * Sekarang berkomunikasi dengan backend proxy, BUKAN langsung ke Google.
- * * TIDAK ADA LAGI API KEY DI SINI.
+ * * Bisa berkomunikasi via proxy Netlify (default, aman).
+ * * ATAU langsung ke Google jika pengguna menyediakan API Key di pengaturan.
+ * * Ini memungkinkan debugging yang mudah jika proxy bermasalah.
  */
+
+// Impor 'state' untuk bisa mengakses API Key yang disimpan pengguna.
+import { state } from './state.js';
 
 // =====================================================================
 // KONFIGURASI & KONSTANTA
 // =====================================================================
 
-// URL sekarang menunjuk ke backend proxy kita.
-// Netlify secara otomatis akan membuat endpoint ini tersedia.
 const PROXY_URL = '/.netlify/functions/gemini-proxy';
+const GOOGLE_API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-// Cache sederhana untuk menyimpan respons API selama sesi berjalan (menggunakan Map).
+// Cache sederhana untuk menyimpan respons API selama sesi berjalan.
 const apiCache = new Map();
 
 // =====================================================================
@@ -24,30 +27,44 @@ const apiCache = new Map();
 // =====================================================================
 
 /**
- * Fungsi internal yang tangguh untuk melakukan panggilan fetch ke backend proxy kita.
- * @param {object} payload - Objek payload lengkap yang akan dikirim ke proxy.
+ * Fungsi internal yang tangguh untuk melakukan panggilan fetch.
+ * Secara dinamis memilih antara proxy atau panggilan langsung berdasarkan state.
+ * @param {object} payload - Objek payload lengkap yang akan dikirim.
  * @returns {Promise<object>} Objek JSON yang sudah diparsing dari respons AI.
  * @throws {Error} Melemparkan error jika panggilan gagal atau respons tidak valid.
  */
 async function safeFetch(payload) {
+    let targetUrl;
+    let options = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    };
+
+    // Cek apakah pengguna memasukkan API Key di pengaturan.
+    if (state.settings.apiKey && state.settings.apiKey.trim() !== '') {
+        // Jika ADA, gunakan mode panggilan langsung ke Google.
+        console.warn("MODE DEBUG: Menggunakan API Key dari pengguna (Panggilan Langsung).");
+        targetUrl = `${GOOGLE_API_URL_BASE}?key=${state.settings.apiKey}`;
+    } else {
+        // Jika TIDAK ADA, gunakan mode standar yang aman via proxy.
+        console.log("MODE STANDAR: Menggunakan proxy Netlify.");
+        targetUrl = PROXY_URL;
+    }
+
     try {
-        // Panggilan sekarang ditujukan ke PROXY_URL
-        const response = await fetch(PROXY_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const response = await fetch(targetUrl, options);
 
         if (!response.ok) {
             const errorBody = await response.json().catch(() => null);
-            const errorMessage = errorBody?.error || `HTTP error! Status: ${response.status}`;
+            const errorMessage = errorBody?.error?.message || `HTTP error! Status: ${response.status}`;
             throw new Error(errorMessage);
         }
         
         const result = await response.json();
 
         if (!result.candidates || result.candidates.length === 0 || !result.candidates[0].content) {
-            throw new Error("Proxy tidak memberikan respons kandidat yang valid.");
+            throw new Error("API tidak memberikan respons kandidat yang valid.");
         }
 
         return JSON.parse(result.candidates[0].content.parts[0].text);
@@ -70,7 +87,7 @@ async function callApiWithCache(cacheKey, payload) {
         return apiCache.get(cacheKey);
     }
 
-    console.log(`Cache miss untuk kunci: "${cacheKey}". Melakukan panggilan API baru via proxy.`);
+    console.log(`Cache miss untuk kunci: "${cacheKey}". Melakukan panggilan API baru.`);
     const result = await safeFetch(payload);
 
     apiCache.set(cacheKey, result);
@@ -124,25 +141,3 @@ export async function getDeck(sourceMaterial, difficulty, mode) {
     };
     return callApiWithCache(cacheKey, payload);
 }
-
-/**
- * (Fitur Baru) Meminta AI untuk mengevaluasi jawaban pengguna secara cerdas.
- * @param {string} question - Pertanyaan yang diberikan.
- * @param {string} correctAnswer - Jawaban yang benar.
- * @param {string} userAnswer - Jawaban yang diberikan oleh pengguna.
- * @returns {Promise<object>} Objek dengan properti 'isCorrect' (boolean) dan 'feedback' (string).
- */
-export async function evaluateAnswer(question, correctAnswer, userAnswer) {
-    const prompt = `Seorang siswa diberi pertanyaan: "${question}". Jawaban yang benar adalah: "${correctAnswer}". Siswa tersebut menjawab: "${userAnswer}". Analisis jawaban siswa. Anggap benar jika jawaban sangat mirip, mengandung kata kunci utama, atau hanya typo ringan. Berikan evaluasi dalam format JSON. 'isCorrect' harus boolean. 'feedback' harus berupa string penjelasan singkat yang ramah (puji jika benar, koreksi dengan lembut jika salah).`;
-    const schema = {
-        type: "OBJECT",
-        properties: { "isCorrect": { type: "BOOLEAN" }, "feedback": { type: "STRING" } },
-        required: ["isCorrect", "feedback"]
-    };
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", responseSchema: schema }
-    };
-    return safeFetch(payload);
-}
-// FIX: Menghapus kurung kurawal tutup '}' yang berlebih di akhir file.
