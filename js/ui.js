@@ -1,83 +1,226 @@
-// ui.js: Mengelola semua interaksi dengan User Interface (tampilan)
+/**
+ * ui.js: Modul Pengelola Tampilan (User Interface)
+ * * Bertanggung jawab untuk semua hal yang berhubungan dengan render HTML,
+ * memperbarui DOM, dan menampilkan feedback visual kepada pengguna.
+ * Modul ini tidak tahu menahu tentang logika bisnis, ia hanya menerima data dan menampilkannya.
+ */
 
+// =====================================================================
+// ELEMEN UTAMA & KONSTANTA
+// =====================================================================
 const appContainer = document.getElementById('app-container');
 
-// Template HTML untuk setiap layar
+// =====================================================================
+// PUSTAKA KOMPONEN KECIL (Reusable Components)
+// =====================================================================
+const components = {
+    /**
+     * Membuat komponen skeleton loader untuk menandakan konten sedang dimuat.
+     * @param {string} width - Lebar skeleton.
+     * @param {string} height - Tinggi skeleton.
+     * @returns {string} HTML string untuk skeleton.
+     */
+    skeleton: (width = '100%', height = '1rem') => `
+        <div class="bg-gray-300 rounded animate-pulse" style="width:${width}; height:${height};"></div>
+    `,
+
+    /**
+     * Membuat komponen progress bar.
+     * @param {number} percentage - Persentase progress (0-100).
+     * @returns {string} HTML string untuk progress bar.
+     */
+    progressBar: (percentage) => `
+        <div class="w-full bg-tertiary rounded-full h-2.5">
+            <div class="bg-success-color h-2.5 rounded-full transition-all duration-300" style="width: ${percentage}%"></div>
+        </div>
+    `,
+
+    /**
+     * Membuat komponen timer.
+     * @param {number} time - Waktu tersisa dalam detik.
+     * @param {string} barId - ID untuk elemen bar timer.
+     * @param {string} displayId - ID untuk elemen teks timer.
+     * @returns {string} HTML string untuk timer.
+     */
+    timer: (time, barId, displayId) => `
+        <div class="flex justify-between items-center text-sm text-secondary mb-2">
+            <span>Waktu Tersisa</span>
+            <span id="${displayId}" class="font-semibold text-lg text-accent-primary">${time}s</span>
+        </div>
+        <div class="w-full bg-tertiary rounded-full h-2.5">
+            <div id="${barId}" class="bg-accent-primary h-2.5 rounded-full" style="width: 100%"></div>
+        </div>
+    `,
+};
+
+// =====================================================================
+// TEMPLATE LAYAR (Menggunakan Komponen)
+// =====================================================================
 const screenTemplates = {
-    start: `
+    start: () => `
         <div id="start-screen" class="screen max-w-2xl">
             <div class="card text-center">
-                <i data-lucide="brain-circuit" class="w-16 h-16 mx-auto text-indigo-500 mb-4"></i>
+                <i data-lucide="brain-circuit" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i>
                 <h1 class="text-4xl font-bold mb-2">Berotak Senku</h1>
-                <p class="text-gray-500 mb-6">Ubah materi apa pun menjadi sesi belajar interaktif.</p>
-                <div class="grid grid-cols-2 gap-2 bg-gray-200 p-1 rounded-xl mb-6">
-                    <button id="mode-topic-btn" class="mode-btn selected w-full p-2 rounded-lg font-semibold transition">Dari Topik</button>
-                    <button id="mode-file-btn" class="mode-btn w-full p-2 rounded-lg font-semibold transition">Dari File</button>
+                <p class="text-secondary mb-6">Ubah materi apa pun menjadi sesi belajar interaktif.</p>
+                <div class="grid grid-cols-2 gap-2 bg-tertiary p-1 rounded-xl mb-6">
+                    <button id="mode-topic-btn" class="mode-btn selected">Dari Topik</button>
+                    <button id="mode-file-btn" class="mode-btn">Dari File</button>
                 </div>
                 <form id="start-form">
-                    <div id="topic-input-container"><input type="text" id="topic-input" class="w-full border-2 border-gray-200 p-4 rounded-xl text-lg text-center" placeholder="Contoh: Sejarah Kerajaan Majapahit" required></div>
-                    <div id="file-input-container" class="hidden"><div id="file-upload-area" class="w-full p-8 rounded-xl text-center cursor-pointer"><i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-gray-400 mb-2"></i><p class="font-semibold">Seret & lepas file</p><p class="text-sm text-gray-500">atau klik untuk memilih (PDF, DOCX)</p><input type="file" id="file-input" class="hidden" accept=".pdf,.docx"><p id="file-name-display" class="mt-4 font-semibold text-indigo-600"></p></div></div>
-                    <div class="my-6"><label class="font-semibold text-gray-600 mb-3 block">Pilih Tingkat Kesulitan:</label><div id="difficulty-selector" class="grid grid-cols-3 gap-3"><button type="button" data-difficulty="Mudah" class="difficulty-btn selected">Mudah</button><button type="button" data-difficulty="Menengah" class="difficulty-btn">Menengah</button><button type="button" data-difficulty="Sulit" class="difficulty-btn">Sulit</button></div></div>
-                    <button type="submit" class="w-full mt-4 bg-indigo-600 text-white font-bold py-4 rounded-xl text-lg">Lanjutkan</button>
+                    <div id="topic-input-container"><input type="text" id="topic-input" placeholder="Contoh: Sejarah Kerajaan Majapahit" required></div>
+                    <div id="file-input-container" class="hidden"><div id="file-upload-area" class="w-full p-8 rounded-xl text-center cursor-pointer border-2 border-dashed border-border-color"><i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-secondary mb-2"></i><p class="font-semibold">Seret & lepas file</p><p class="text-sm text-secondary">atau klik untuk memilih (PDF, DOCX)</p><input type="file" id="file-input" class="hidden" accept=".pdf,.docx"><p id="file-name-display" class="mt-4 font-semibold text-accent-primary"></p></div></div>
+                    <div class="my-6"><label class="font-semibold text-secondary mb-3 block">Pilih Tingkat Kesulitan:</label><div id="difficulty-selector" class="grid grid-cols-3 gap-3"><button type="button" data-difficulty="Mudah" class="difficulty-btn selected">Mudah</button><button type="button" data-difficulty="Menengah" class="difficulty-btn">Menengah</button><button type="button" data-difficulty="Sulit" class="difficulty-btn">Sulit</button></div></div>
+                    <button type="submit" class="btn btn-primary w-full mt-4 py-4 text-lg">Lanjutkan</button>
                 </form>
             </div>
         </div>`,
-    choice: `
-        <div id="choice-screen" class="screen max-w-2xl"><div class="card text-center"><i data-lucide="git-branch-plus" class="w-16 h-16 mx-auto text-indigo-500 mb-4"></i><h2 class="text-3xl font-bold">Pilih Arah Topik</h2><p class="text-gray-500 mb-6">Pilih salah satu fokus untuk materi belajarmu.</p><div id="choices-container" class="space-y-4 text-left"></div><button id="confirm-choice-btn" class="w-full mt-6 bg-indigo-600 text-white font-bold py-4 rounded-xl" disabled>Buatkan Materi</button></div></div>`,
-    loading: `
-        <div id="loading-screen" class="screen max-w-lg"><div class="card text-center"><i data-lucide="loader-2" class="w-16 h-16 mx-auto text-indigo-500 mb-4 animate-spin"></i><h2 class="text-2xl font-bold text-gray-700">AI sedang bekerja...</h2><p id="loading-text" class="text-gray-500 mt-2">Mohon tunggu sebentar.</p></div></div>`,
-    memorize: `
-        <div id="memorize-screen" class="screen max-w-3xl"><div class="card"><div class="mb-4"><div class="flex justify-between items-center text-sm text-gray-500 mb-2"><span>Materi <span id="current-memorize-number">1</span> dari <span id="total-memorize-number">1</span></span><span id="memorize-timer-display" class="font-semibold text-lg text-indigo-600">30s</span></div><div class="w-full bg-gray-200 rounded-full h-2.5"><div id="memorize-timer-bar-inner" class="bg-indigo-600 h-2.5 rounded-full" style="width: 100%"></div></div></div><div id="memorize-card-area" class="py-8 min-h-[300px] flex flex-col justify-center relative"></div><div class="flex justify-center mt-4"><button id="start-test-btn" class="bg-green-500 text-white font-bold py-3 px-8 rounded-xl text-lg">Mulai Ujian</button></div></div></div>`,
-    test: `
-        <div id="test-screen" class="screen max-w-2xl"><div class="card">...</div></div>`, // Tambahkan template lain jika perlu
-    results: `
-        <div id="results-screen" class="screen max-w-lg"><div class="card text-center">...</div></div>`,
-    deck: `
-        <div id="deck-screen" class="screen max-w-4xl"><div class="card"><div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-bold">Deck Kartu Belajar</h2><button id="close-deck-btn" class="bg-gray-200 p-2 rounded-full"><i data-lucide="x" class="w-6 h-6"></i></button></div><div id="deck-content" class="space-y-6 max-h-[70vh] overflow-y-auto pr-2"></div></div></div>`
+    
+    loading: (text = 'Mohon tunggu sebentar...') => `
+        <div id="loading-screen" class="screen max-w-lg"><div class="card text-center"><i data-lucide="loader-2" class="w-16 h-16 mx-auto text-accent-primary mb-4 animate-spin"></i><h2 class="text-2xl font-bold">AI sedang bekerja...</h2><p class="text-secondary mt-2">${text}</p></div></div>`,
+    
+    choice: (choices) => {
+        const choiceButtons = choices.map(choice => `
+            <button class="choice-btn w-full p-4 rounded-lg text-left" data-choice-title="${choice.title}">
+                <p class="font-semibold text-lg">${choice.title}</p>
+                <p class="text-secondary">${choice.description}</p>
+            </button>
+        `).join('');
+
+        return `
+        <div id="choice-screen" class="screen max-w-2xl"><div class="card text-center"><i data-lucide="git-branch-plus" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i><h2 class="text-3xl font-bold">Pilih Arah Topik</h2><p class="text-secondary mb-6">Pilih salah satu fokus untuk materi belajarmu.</p><div id="choices-container" class="space-y-4">${choiceButtons}</div><button id="confirm-choice-btn" class="btn btn-primary w-full mt-6 py-4" disabled>Buatkan Materi</button></div></div>`;
+    },
+
+    results: (score, total) => `
+        <div id="results-screen" class="screen max-w-lg">
+            <div class="card text-center">
+                <i data-lucide="party-popper" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i>
+                <h2 class="text-3xl font-bold">Sesi Selesai!</h2>
+                <div class="bg-accent-secondary p-6 rounded-xl my-6">
+                    <p class="text-lg text-secondary">Skor Akhir</p>
+                    <p id="final-score" class="text-6xl font-bold text-accent-primary my-2">${score}/${total}</p>
+                </div>
+                <button id="restart-btn" class="btn btn-primary w-full mt-6 py-4">Belajar Topik Baru</button>
+            </div>
+        </div>`,
 };
 
-export function showScreen(screenId, state) {
-    const activeScreen = appContainer.querySelector('.screen.active');
-    if (activeScreen && activeScreen.id !== 'deck-screen') {
-        state.lastActiveScreenId = activeScreen.id;
-    }
+// =====================================================================
+// FUNGSI UTAMA RENDER & UPDATE UI
+// =====================================================================
 
-    appContainer.innerHTML = screenTemplates[screenId];
-    appContainer.querySelector('.screen').classList.add('active');
+/**
+ * Fungsi utama untuk menampilkan sebuah layar.
+ * @param {string} screenId - Kunci dari layar yang ingin ditampilkan (e.g., 'start', 'loading').
+ * @param {object} [data] - Data opsional untuk me-render layar (e.g., teks untuk loading).
+ */
+export function showScreen(screenId, data) {
+    if (screenTemplates[screenId]) {
+        appContainer.innerHTML = screenTemplates[screenId](data);
+        const screenElement = appContainer.querySelector('.screen');
+        if (screenElement) {
+            screenElement.classList.add('active');
+            focusOnFirstElement(screenElement);
+        }
+    } else {
+        console.error(`Layar dengan ID "${screenId}" tidak ditemukan.`);
+        appContainer.innerHTML = `<p class="error-message">Terjadi kesalahan: Layar tidak ditemukan.</p>`;
+    }
 
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 }
 
-export function updateFileName(fileName) {
-    const el = document.getElementById('file-name-display');
-    if (el) el.textContent = fileName;
+/**
+ * Menampilkan notifikasi global di pojok layar.
+ * @param {string} message - Pesan yang ingin ditampilkan.
+ * @param {'success'|'error'|'info'} [type='info'] - Tipe notifikasi.
+ * @param {number} [duration=3000] - Durasi notifikasi dalam milidetik.
+ */
+export function showNotification(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('notification-container');
+    if (!container) return;
+
+    const notif = document.createElement('div');
+    notif.className = `notification ${type}`;
+    notif.textContent = message;
+
+    container.appendChild(notif);
+
+    setTimeout(() => {
+        notif.classList.add('fading-out');
+        notif.addEventListener('animationend', () => notif.remove());
+    }, duration);
 }
 
-export function displayChoices(choices, onSelect, onConfirm) {
-    const container = document.getElementById('choices-container');
-    const confirmBtn = document.getElementById('confirm-choice-btn');
-    if (!container || !confirmBtn) return;
-
-    container.innerHTML = '';
-    let selectedChoice = null;
-
-    choices.forEach((choice) => {
-        const btn = document.createElement('button');
-        btn.className = 'choice-btn w-full p-4 rounded-lg text-left';
-        btn.innerHTML = `<p class="font-semibold text-lg">${choice.title}</p><p class="text-gray-500">${choice.description}</p>`;
-        btn.onclick = () => {
-            selectedChoice = choice.title;
-            document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
-            btn.classList.add('selected');
-            confirmBtn.disabled = false;
-            onSelect(selectedChoice);
-        };
-        container.appendChild(btn);
-    });
-
-    confirmBtn.onclick = onConfirm;
+/**
+ * Memicu efek confetti. Pastikan library canvas-confetti sudah dimuat.
+ */
+export function triggerConfetti() {
+    if (typeof confetti === 'function') {
+        confetti({
+            particleCount: 150,
+            spread: 90,
+            origin: { y: 0.6 },
+            zIndex: 10000
+        });
+    } else {
+        console.warn('Library canvas-confetti belum dimuat.');
+    }
 }
 
-// ... Tambahkan fungsi UI lainnya seperti updateTimer, displayCard, dll ...
+/**
+ * Memperbarui tampilan skor secara real-time dengan animasi.
+ * @param {number} newScore - Skor baru untuk ditampilkan.
+ */
+export function updateScore(newScore) {
+    const scoreElement = document.getElementById('score-display');
+    if (scoreElement) {
+        scoreElement.textContent = `Skor: ${newScore}`;
+        // Tambahkan class untuk animasi 'pop'
+        // CSS untuk .score-pop perlu ditambahkan di style.css
+        scoreElement.classList.add('score-pop'); 
+        scoreElement.addEventListener('animationend', () => {
+            scoreElement.classList.remove('score-pop');
+        });
+    }
+}
+
+/**
+ * Memperbarui UI timer (bar dan teks).
+ * @param {number} timeLeft - Waktu tersisa.
+ * @param {number} totalTime - Waktu total untuk menghitung persentase.
+ * @param {string} barId - ID elemen bar.
+ * @param {string} displayId - ID elemen teks.
+ */
+export function updateTimerUI(timeLeft, totalTime, barId, displayId) {
+    const bar = document.getElementById(barId);
+    const display = document.getElementById(displayId);
+    if (bar) {
+        bar.style.width = `${(timeLeft / totalTime) * 100}%`;
+    }
+    if (display) {
+        display.textContent = `${timeLeft}s`;
+    }
+}
+
+// =====================================================================
+// FUNGSI AKSESIBILITAS (A11y)
+// =====================================================================
+
+/**
+ * Memindahkan fokus keyboard ke elemen interaktif pertama di dalam sebuah kontainer.
+ * @param {HTMLElement} container - Elemen kontainer (e.g., modal atau layar baru).
+ */
+export function focusOnFirstElement(container) {
+    if (!container) return;
+    const focusableElements = container.querySelectorAll(
+        'a[href], button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])'
+    );
+    const firstVisibleElement = Array.from(focusableElements).find(el => !el.disabled && el.offsetParent !== null);
+    
+    if (firstVisibleElement) {
+        firstVisibleElement.focus();
+    }
+}
