@@ -8,8 +8,6 @@
 // =====================================================================
 // IMPOR SEMUA MODUL YANG DIBUTUHKAN
 // =====================================================================
-// Ganti path ini dengan path file modulmu yang sebenarnya jika berbeda
-// Di awal main.js
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
@@ -22,41 +20,37 @@ import { setupFileHandling } from './fileHandler.js';
 const learningFlow = {
     currentState: 'IDLE',
     transitions: {
-        IDLE: { SUBMIT: 'LOADING_CHOICES' },
+        IDLE: { SUBMIT_TOPIC: 'LOADING_CHOICES', SUBMIT_FILE: 'LOADING_DECK' },
         LOADING_CHOICES: { SUCCESS: 'CHOOSING', FAIL: 'IDLE' },
         CHOOSING: { CONFIRM: 'LOADING_DECK' },
-        LOADING_DECK: { SUCCESS: 'MEMORIZING', FAIL: 'IDLE' }, // Kembali ke IDLE jika gagal
+        LOADING_DECK: { SUCCESS: 'MEMORIZING', FAIL: 'IDLE' },
         MEMORIZING: { START_TEST: 'TESTING' },
         TESTING: { COMPLETE: 'RESULTS' },
         RESULTS: { RESTART: 'IDLE' }
     },
     
-    /**
-     * Pindah ke status berikutnya.
-     * @param {string} action - Aksi yang memicu transisi (e.g., 'SUBMIT', 'SUCCESS').
-     */
     async transition(action) {
         const nextState = this.transitions[this.currentState]?.[action];
         if (nextState) {
             console.log(`State Transition: ${this.currentState} -> ${nextState}`);
             this.currentState = nextState;
-            await this.runStateLogic(); // Jalankan logika untuk state baru
+            await this.runStateLogic();
         } else {
             console.error(`Transisi tidak valid dari ${this.currentState} dengan aksi ${action}`);
         }
     },
     
-    // Menjalankan logika berdasarkan state saat ini
     async runStateLogic() {
         switch(this.currentState) {
             case 'IDLE':
+                actions.resetQuiz();
                 ui.showScreen('start');
                 setupStartScreenListeners();
                 break;
             case 'LOADING_CHOICES':
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
-                    const choiceData = await api.getChoices(state.topic);
+                    const choiceData = await api.getChoices(state.quiz.topic);
                     await this.transition('SUCCESS');
                     ui.showScreen('choice', choiceData.choices);
                     setupChoiceScreenListeners();
@@ -65,21 +59,22 @@ const learningFlow = {
             case 'LOADING_DECK':
                 ui.showScreen('loading', 'Membuat materi belajar...');
                  await handleAsync(async () => {
-                    const source = state.currentMode === 'topic' ? state.topic : state.sourceText;
-                    state.generatedData = await api.getDeck(source, state.difficulty, state.currentMode);
+                    const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
+                    const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode);
+                    actions.setGeneratedData(generatedData);
                     await this.transition('SUCCESS');
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'MEMORIZING':
-                // Logika untuk memulai fase hafalan akan ada di sini
-                console.log("Memulai fase hafalan...");
-                // ui.showScreen('memorize', state.generatedData);
+                console.log("Memulai fase hafalan...", state.quiz.generatedData);
+                // Di sini kamu akan menambahkan logika untuk menampilkan layar hafalan
+                // ui.showScreen('memorize', state.quiz.generatedData);
                 // setupMemorizeScreenListeners();
                 break;
             case 'RESULTS':
-                ui.showScreen('results', state.score, state.generatedData.flashcards.length);
+                ui.showScreen('results', state.quiz.score, state.quiz.generatedData.flashcards.length);
                 ui.triggerConfetti();
-                document.getElementById('restart-btn').onclick = () => this.transition('RESTART');
+                addListener(document.getElementById('restart-btn'), 'click', () => this.transition('RESTART'));
                 break;
         }
     }
@@ -88,16 +83,8 @@ const learningFlow = {
 // =====================================================================
 // PENGELOLA EVENT LISTENERS
 // =====================================================================
-
-// Objek untuk menyimpan referensi listener agar bisa dihapus
 let activeListeners = [];
 
-/**
- * Fungsi utilitas untuk menambah event listener dan menyimpannya.
- * @param {HTMLElement} element - Elemen target.
- * @param {string} event - Nama event (e.g., 'click').
- * @param {Function} handler - Fungsi handler.
- */
 function addListener(element, event, handler) {
     if (element) {
         element.addEventListener(event, handler);
@@ -105,9 +92,6 @@ function addListener(element, event, handler) {
     }
 }
 
-/**
- * Menghapus semua event listener yang aktif.
- */
 function cleanupListeners() {
     activeListeners.forEach(({ element, event, handler }) => {
         element.removeEventListener(event, handler);
@@ -122,7 +106,8 @@ function setupStartScreenListeners() {
     addListener(document.getElementById('mode-file-btn'), 'click', () => switchMode('file'));
     document.querySelectorAll('.difficulty-btn').forEach(btn => {
         addListener(btn, 'click', () => {
-            state.difficulty = btn.dataset.difficulty;
+            const difficulty = btn.dataset.difficulty;
+            actions.setQuizDetails(state.quiz.topic, difficulty); // Update difficulty in state
             document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
         });
@@ -136,7 +121,7 @@ function setupChoiceScreenListeners() {
     document.querySelectorAll('.choice-btn').forEach(btn => {
         addListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
-            state.topic = selectedChoice;
+            actions.setQuizDetails(selectedChoice, state.quiz.difficulty); // Update topic in state
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             document.getElementById('confirm-choice-btn').disabled = false;
@@ -153,31 +138,27 @@ function setupChoiceScreenListeners() {
 // =====================================================================
 // HANDLER & ACTIONS
 // =====================================================================
-
-/**
- * Menangani submit dari form awal.
- * @param {Event} event - Event submit.
- */
 async function handleStart(event) {
     event.preventDefault();
-    if (state.currentMode === 'topic') {
-        state.topic = document.getElementById('topic-input').value;
-        await learningFlow.transition('SUBMIT');
+    if (state.session.currentMode === 'topic') {
+        const topic = document.getElementById('topic-input').value;
+        if (!topic) {
+            ui.showNotification('Mohon masukkan topik terlebih dahulu.', 'error');
+            return;
+        }
+        actions.setQuizDetails(topic, state.quiz.difficulty);
+        await learningFlow.transition('SUBMIT_TOPIC');
     } else { // mode 'file'
-        if (!state.sourceText) {
+        if (!state.quiz.sourceText) { // Cek dari state
             ui.showNotification('Mohon pilih dan tunggu file selesai diproses.', 'error');
             return;
         }
-        await learningFlow.transition('CONFIRM'); // Langsung ke loading deck
+        await learningFlow.transition('SUBMIT_FILE');
     }
 }
 
-/**
- * Mengganti mode aplikasi antara 'topic' dan 'file'.
- * @param {'topic'|'file'} mode - Mode yang dipilih.
- */
 function switchMode(mode) {
-    state.currentMode = mode;
+    actions.setMode(mode); // Gunakan action untuk mengubah state
     document.getElementById('mode-topic-btn').classList.toggle('selected', mode === 'topic');
     document.getElementById('mode-file-btn').classList.toggle('selected', mode === 'file');
     document.getElementById('topic-input-container').classList.toggle('hidden', mode !== 'topic');
@@ -185,8 +166,7 @@ function switchMode(mode) {
 }
 
 /**
- * Callback untuk modul fileHandler.
- * @param {object} result - Hasil dari pemrosesan file.
+ * FIX: Callback untuk modul fileHandler, sekarang menggunakan objek 'content'
  */
 function handleFileProcessed(result) {
     const fileNameDisplay = document.getElementById('file-name-display');
@@ -194,22 +174,22 @@ function handleFileProcessed(result) {
 
     if (result.status === 'processing') {
         fileNameDisplay.textContent = `Memproses: ${result.name}...`;
+        actions.setLoading(true);
     } else if (result.status === 'ready') {
-        state.sourceText = result.text;
-        state.topic = result.name; // Gunakan nama file sebagai topik sementara
-        fileNameDisplay.textContent = `Siap: ${result.name}`;
+        // Menggunakan actions dari state.js untuk menyimpan data
+        actions.setSourceText(result.content.text); // Action baru yang perlu ditambahkan di state.js
+        actions.setQuizDetails(result.content.title, state.quiz.difficulty);
+        
+        fileNameDisplay.textContent = `Siap: ${result.content.metadata.fileName} (${result.content.metadata.wordCount} kata)`;
+        actions.setLoading(false);
         ui.showNotification('File berhasil dibaca!', 'success');
     } else if (result.status === 'error') {
+        actions.setLoading(false);
         ui.showNotification(`Gagal memproses file: ${result.message}`, 'error');
         fileNameDisplay.textContent = '';
     }
 }
 
-/**
- * Fungsi pembungkus untuk menangani operasi async dengan error handling terpusat.
- * @param {Function} asyncOperation - Fungsi async yang ingin dijalankan.
- * @param {object} [options] - Opsi, termasuk state fallback jika gagal.
- */
 async function handleAsync(asyncOperation, options = {}) {
     try {
         await asyncOperation();
@@ -226,47 +206,26 @@ async function handleAsync(asyncOperation, options = {}) {
 // =====================================================================
 // PENGATURAN & ROUTER
 // =====================================================================
-
 function setupGlobalListeners() {
-    addListener(document.getElementById('settings-btn'), 'click', () => ui.showModal('settings'));
-    addListener(document.getElementById('view-deck-btn'), 'click', () => window.location.hash = '/deck');
+    // addListener(document.getElementById('settings-btn'), 'click', () => ui.showModal('settings'));
+    // addListener(document.getElementById('view-deck-btn'), 'click', () => window.location.hash = '/deck');
 }
 
 function handleRouteChange() {
     const hash = window.location.hash || '#/';
     cleanupListeners();
-
-    switch(hash) {
-        case '#/deck':
-            // ui.showScreen('deck');
-            // deck.displayDeck();
-            // addListener(document.getElementById('close-deck-btn'), 'click', () => window.history.back());
-            break;
-        // Rute lain bisa ditambahkan di sini
-        default:
-            if (learningFlow.currentState === 'IDLE') {
-                ui.showScreen('start');
-                setupStartScreenListeners();
-            }
-            break;
-    }
+    // ... logika router ...
 }
 
 // =====================================================================
 // INISIALISASI APLIKASI
 // =====================================================================
 function init() {
-    // Dengarkan perubahan hash untuk router
+    initState(); // Inisialisasi state dari localStorage
     window.addEventListener('hashchange', handleRouteChange);
-    
-    // Tampilkan layar awal berdasarkan state machine
-    learningFlow.runStateLogic();
-
-    // Siapkan listener global yang selalu ada
-    // setupGlobalListeners(); // Aktifkan jika sudah ada modal dan deck screen di ui.js
-
+    learningFlow.runStateLogic(); // Mulai aplikasi
+    setupGlobalListeners();
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
 }
 
-// Jalankan aplikasi setelah semua konten HTML dimuat
 document.addEventListener('DOMContentLoaded', init);
