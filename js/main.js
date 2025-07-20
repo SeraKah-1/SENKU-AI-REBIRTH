@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL (STABIL): Memperbaiki alur "Pelajari Deck" agar berfungsi.
+ * * VERSI FINAL: Menambahkan fungsionalitas Hapus dan Ganti Nama Deck.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -181,12 +181,20 @@ function setupResultsScreenListeners() {
     addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
+// PERBAIKAN DI SINI: Menambahkan listener untuk semua tombol di layar dek
 function setupDeckScreenListeners() {
-    document.querySelectorAll('button[data-deck-name]').forEach(btn => {
-        addScreenListener(btn, 'click', (e) => {
-            const deckName = e.currentTarget.dataset.deckName;
-            handleStudyDeck(deckName);
-        });
+    addScreenListener(document.querySelector('#deck-screen'), 'click', (e) => {
+        const studyBtn = e.target.closest('.study-deck-btn');
+        const renameBtn = e.target.closest('.rename-deck-btn');
+        const deleteBtn = e.target.closest('.delete-deck-btn');
+
+        if (studyBtn) {
+            handleStudyDeck(studyBtn.dataset.deckName);
+        } else if (renameBtn) {
+            handleRenameDeck(renameBtn.dataset.deckName);
+        } else if (deleteBtn) {
+            handleDeleteDeck(deleteBtn.dataset.deckName);
+        }
     });
 }
 
@@ -229,11 +237,9 @@ function handleSaveDeck() {
     }
 }
 
-// PERBAIKAN UTAMA DI SINI
 function handleStudyDeck(deckName) {
     const cards = deck.startDeckStudySession(deckName);
     if (cards && cards.length > 0) {
-        // Siapkan data seolah-olah dari AI
         const deckData = {
             summary: `Mempelajari kembali dek "${deckName}"`,
             flashcards: cards.map(c => ({
@@ -242,16 +248,37 @@ function handleStudyDeck(deckName) {
                 question: c.definition.replace(new RegExp(c.term, 'ig'), '____')
             }))
         };
-        // Reset kuis, set data baru, dan mulai dari tahap hafalan
         actions.resetQuiz();
         actions.setGeneratedData(deckData);
-        // Langsung transisi ke tahap MEMORIZING
-        learningFlow.currentState = 'LOADING_DECK'; // Set state saat ini
-        learningFlow.transition('SUCCESS'); // Transisi ke MEMORIZING
+        learningFlow.currentState = 'LOADING_DECK';
+        learningFlow.transition('SUCCESS');
     } else {
         ui.showNotification("Deck ini kosong atau tidak ditemukan.", "error");
     }
 }
+
+// FUNGSI BARU: Logika untuk mengganti nama dek
+function handleRenameDeck(oldName) {
+    const newName = prompt(`Masukkan nama baru untuk dek "${oldName}":`, oldName);
+    if (newName && newName.trim() !== "" && newName.trim() !== oldName) {
+        if (deck.renameDeck(oldName, newName)) {
+            ui.showNotification(`Nama dek diubah menjadi "${newName}"`, 'success');
+            handleRouteChange(); // Muat ulang layar dek untuk melihat perubahan
+        } else {
+            ui.showNotification("Nama dek sudah ada atau tidak valid.", "error");
+        }
+    }
+}
+
+// FUNGSI BARU: Logika untuk menghapus dek
+function handleDeleteDeck(deckName) {
+    if (confirm(`Apakah kamu yakin ingin menghapus dek "${deckName}"? Aksi ini tidak bisa dibatalkan.`)) {
+        deck.deleteDeck(deckName);
+        ui.showNotification(`Deck "${deckName}" telah dihapus.`, 'success');
+        handleRouteChange(); // Muat ulang layar dek
+    }
+}
+
 
 function switchMode(mode) {
     actions.setMode(mode);
