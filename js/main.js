@@ -1,21 +1,13 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL (STABIL): Memisahkan listener global dan listener layar
- * untuk mencegah bug layar kosong dan tombol tidak responsif.
+ * * VERSI FINAL (STABIL): Memperbaiki fungsionalitas tombol "Pelajari".
  */
-
-// =====================================================================
-// IMPOR SEMUA MODUL YANG DIBUTUHKAN
-// =====================================================================
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
 import * as deck from './deck.js';
 import { setupFileHandling } from './fileHandler.js';
 
-// =====================================================================
-// STATE MACHINE UNTUK ALUR BELAJAR
-// =====================================================================
 const learningFlow = {
     currentState: 'IDLE',
     transitions: {
@@ -27,20 +19,17 @@ const learningFlow = {
         TESTING: { COMPLETE: 'RESULTS' },
         RESULTS: { RESTART: 'IDLE' }
     },
-    
     async transition(action) {
         const nextState = this.transitions[this.currentState]?.[action];
         if (nextState) {
             console.log(`State Transition: ${this.currentState} -> ${nextState}`);
             this.currentState = nextState;
-            // PERBAIKAN: Hanya membersihkan listener spesifik layar
             cleanupScreenListeners(); 
             await this.runStateLogic();
         } else {
             console.error(`Transisi tidak valid dari ${this.currentState} dengan aksi ${action}`);
         }
     },
-    
     async runStateLogic() {
         switch(this.currentState) {
             case 'IDLE':
@@ -90,10 +79,6 @@ const learningFlow = {
     }
 };
 
-// =====================================================================
-// PENGELOLA EVENT LISTENERS (DIPERBAIKI)
-// =====================================================================
-// Array ini HANYA untuk listener yang spesifik per layar
 let activeScreenListeners = [];
 
 function addScreenListener(element, event, handler) {
@@ -110,21 +95,12 @@ function cleanupScreenListeners() {
     activeScreenListeners = [];
 }
 
-// =====================================================================
-// KUMPULAN FUNGSI SETUP LISTENER
-// =====================================================================
-
-// Listener Global (dipasang sekali dan permanen)
 function setupGlobalListeners() {
-    // Tombol Deck
     document.getElementById('view-deck-btn').addEventListener('click', () => {
         window.location.hash = 'deck';
     });
-    
-    // Widget Pengaturan
     const apiKeyInput = document.getElementById('api-key-input');
     const themeSelector = document.getElementById('theme-selector');
-
     if (apiKeyInput) {
         apiKeyInput.value = state.settings.apiKey;
         apiKeyInput.addEventListener('change', (e) => actions.setApiKey(e.target.value));
@@ -135,7 +111,6 @@ function setupGlobalListeners() {
     }
 }
 
-// Listener spesifik per layar (menggunakan addScreenListener agar bisa dibersihkan)
 function setupStartScreenListeners() {
     addScreenListener(document.getElementById('start-form'), 'submit', handleStart);
     addScreenListener(document.getElementById('mode-topic-btn'), 'click', () => switchMode('topic'));
@@ -184,11 +159,8 @@ function setupTestScreenListeners() {
         const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
         const userAnswer = answerInput.value.trim();
         const isCorrect = userAnswer.toLowerCase() === currentCard.term.toLowerCase();
-        
         if (isCorrect) actions.incrementScore();
-        
         ui.showTestResult(isCorrect, currentCard.term);
-
         const nextButton = document.getElementById('next-question-btn');
         if (nextButton) {
             nextButton.focus();
@@ -209,22 +181,19 @@ function setupResultsScreenListeners() {
     addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
+// PERBAIKAN DI SINI
 function setupDeckScreenListeners() {
     document.querySelectorAll('button[data-deck-name]').forEach(btn => {
         addScreenListener(btn, 'click', (e) => {
             const deckName = e.currentTarget.dataset.deckName;
-            ui.showNotification(`Kamu memilih untuk mempelajari dek: "${deckName}"`, 'info');
+            handleStudyDeck(deckName);
         });
     });
 }
 
-// =====================================================================
-// HANDLER & ACTIONS
-// =====================================================================
 async function handleStart(event) {
     event.preventDefault();
     const difficulty = document.querySelector('.difficulty-btn.selected')?.dataset.difficulty || 'Mudah';
-
     if (state.session.currentMode === 'topic') {
         const topic = document.getElementById('topic-input').value;
         if (!topic) {
@@ -246,7 +215,6 @@ async function handleStart(event) {
 function handleSaveDeck() {
     const defaultDeckName = state.quiz.topic || "Dek Baru";
     const deckName = prompt("Masukkan nama untuk dek ini:", defaultDeckName);
-
     if (deckName && deckName.trim() !== "") {
         const flashcards = state.quiz.generatedData.flashcards;
         flashcards.forEach(card => {
@@ -259,6 +227,30 @@ function handleSaveDeck() {
         document.getElementById('save-deck-btn').disabled = true;
     } else {
         ui.showNotification('Penyimpanan dibatalkan.', 'error');
+    }
+}
+
+// FUNGSI BARU UNTUK MEMULAI SESI BELAJAR DARI DECK
+function handleStudyDeck(deckName) {
+    const cards = deck.startDeckStudySession(deckName);
+    if (cards && cards.length > 0) {
+        // Siapkan data seolah-olah dari AI
+        const deckData = {
+            summary: `Mempelajari kembali dek "${deckName}"`,
+            flashcards: cards.map(c => ({
+                term: c.term,
+                definition: c.definition,
+                // Buat pertanyaan isian sederhana
+                question: c.definition.replace(new RegExp(c.term, 'ig'), '____')
+            }))
+        };
+        // Reset kuis, set data baru, dan mulai dari tahap hafalan
+        actions.resetQuiz();
+        actions.setGeneratedData(deckData);
+        learningFlow.currentState = 'IDLE'; // Balik ke IDLE dulu
+        learningFlow.transition('CONFIRM'); // Lalu mulai alur deck
+    } else {
+        ui.showNotification("Deck ini kosong atau tidak ditemukan.", "error");
     }
 }
 
@@ -290,14 +282,9 @@ async function handleAsync(asyncOperation, options = {}) {
     }
 }
 
-// =====================================================================
-// ROUTER (NAVIGASI) & INISIALISASI
-// =====================================================================
 function handleRouteChange() {
-    cleanupScreenListeners(); // Hanya membersihkan listener spesifik layar
-
+    cleanupScreenListeners();
     const hash = window.location.hash.substring(1);
-
     switch(hash) {
         case 'deck':
             ui.showScreen('deck', { decks: state.userData.savedDecks });
@@ -315,13 +302,9 @@ function handleRouteChange() {
 function init() {
     initState();
     ui.initUI();
-    // Pasang listener global hanya sekali saat aplikasi dimuat
     setupGlobalListeners(); 
-    
     window.addEventListener('hashchange', handleRouteChange);
-    // Panggil router untuk menampilkan layar awal
     handleRouteChange(); 
-    
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
 }
 
