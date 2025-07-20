@@ -1,16 +1,12 @@
 /**
  * ui.js: Modul Pengelola Tampilan (User Interface)
- * * VERSI FINAL: Mengembalikan semua template HTML ke dalam file ini, 
- * menambahkan tombol simpan dek, dan menyempurnakan semua alur UI.
- * * Bertanggung jawab untuk semua hal yang berhubungan dengan render HTML dan
- * memperbarui DOM.
+ * * VERSI FINAL: Menambahkan tombol Rename dan Delete pada tampilan dek.
  */
 
 // =====================================================================
 // ELEMEN UTAMA & CACHE
 // =====================================================================
 let appContainer;
-// Cache untuk elemen modal agar tidak perlu query berulang kali
 const modalCache = {}; 
 
 // =====================================================================
@@ -114,7 +110,6 @@ const screenTemplates = {
             </div>
         </div>`,
 
-    // PERBAIKAN KRUSIAL: Menambahkan tombol "Simpan Kartu ke Deck"
     results: ({ score, total }) => `
         <div id="results-screen" class="screen max-w-lg w-full">
             <div class="card text-center">
@@ -131,6 +126,7 @@ const screenTemplates = {
             </div>
         </div>`,
     
+    // PERBAIKAN DI SINI: Menambahkan tombol Rename dan Delete
     deck: ({ decks }) => {
         const hasDecks = Object.keys(decks).length > 0;
         const deckList = hasDecks ? Object.entries(decks).map(([name, cards]) => `
@@ -139,7 +135,15 @@ const screenTemplates = {
                     <p class="font-bold">${name}</p>
                     <p class="text-sm text-secondary">${cards.length} kartu</p>
                 </div>
-                <button class="btn btn-primary text-sm py-2 px-4" data-deck-name="${name}">Pelajari</button>
+                <div class="flex gap-2">
+                    <button class="btn-icon rename-deck-btn" data-deck-name="${name}" title="Ganti Nama">
+                        <i data-lucide="file-edit" class="w-5 h-5"></i>
+                    </button>
+                    <button class="btn-icon delete-deck-btn" data-deck-name="${name}" title="Hapus">
+                        <i data-lucide="trash-2" class="w-5 h-5 text-error-color"></i>
+                    </button>
+                    <button class="btn btn-primary text-sm py-2 px-4 study-deck-btn" data-deck-name="${name}">Pelajari</button>
+                </div>
             </div>
         `).join('') : '<p class="text-center text-secondary">Kamu belum punya deck tersimpan.</p>';
 
