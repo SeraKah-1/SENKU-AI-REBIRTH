@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL (STABIL): Memperbaiki fungsionalitas tombol "Pelajari".
+ * * VERSI FINAL (STABIL): Memperbaiki alur "Pelajari Deck" agar berfungsi.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -181,7 +181,6 @@ function setupResultsScreenListeners() {
     addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
-// PERBAIKAN DI SINI
 function setupDeckScreenListeners() {
     document.querySelectorAll('button[data-deck-name]').forEach(btn => {
         addScreenListener(btn, 'click', (e) => {
@@ -230,7 +229,7 @@ function handleSaveDeck() {
     }
 }
 
-// FUNGSI BARU UNTUK MEMULAI SESI BELAJAR DARI DECK
+// PERBAIKAN UTAMA DI SINI
 function handleStudyDeck(deckName) {
     const cards = deck.startDeckStudySession(deckName);
     if (cards && cards.length > 0) {
@@ -240,15 +239,15 @@ function handleStudyDeck(deckName) {
             flashcards: cards.map(c => ({
                 term: c.term,
                 definition: c.definition,
-                // Buat pertanyaan isian sederhana
                 question: c.definition.replace(new RegExp(c.term, 'ig'), '____')
             }))
         };
         // Reset kuis, set data baru, dan mulai dari tahap hafalan
         actions.resetQuiz();
         actions.setGeneratedData(deckData);
-        learningFlow.currentState = 'IDLE'; // Balik ke IDLE dulu
-        learningFlow.transition('CONFIRM'); // Lalu mulai alur deck
+        // Langsung transisi ke tahap MEMORIZING
+        learningFlow.currentState = 'LOADING_DECK'; // Set state saat ini
+        learningFlow.transition('SUCCESS'); // Transisi ke MEMORIZING
     } else {
         ui.showNotification("Deck ini kosong atau tidak ditemukan.", "error");
     }
