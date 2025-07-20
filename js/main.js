@@ -1,6 +1,10 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL - DIPERBAIKI: Memperbaiki bug tombol deck yang tidak merespons.
+ * * VERSI FINAL - GABUNGAN SEMUA PERBAIKAN:
+ * - Memperbaiki bug layar kosong saat inisialisasi.
+ * - Memperbaiki bug tombol pilihan topik yang tidak bisa diklik.
+ * - Memperbaiki bug tombol "Lihat Deck" yang tidak merespons.
+ * - Menambahkan fungsionalitas pada tombol "Pelajari" di layar dek.
  */
 
 // =====================================================================
@@ -33,7 +37,7 @@ const learningFlow = {
             console.log(`State Transition: ${this.currentState} -> ${nextState}`);
             this.currentState = nextState;
             cleanupListeners();
-            // PERBAIKAN DI SINI: Pasang kembali listener global setelah bersih-bersih.
+            // Memastikan listener global selalu terpasang setelah transisi
             setupGlobalListeners(); 
             await this.runStateLogic();
         } else {
@@ -52,6 +56,7 @@ const learningFlow = {
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
                     const choiceData = await api.getChoices(state.quiz.topic);
+                    // Langsung ubah state dan render UI, cegah transisi yang hapus listener
                     this.currentState = 'CHOOSING'; 
                     ui.showScreen('choice', choiceData.choices);
                     setupChoiceScreenListeners();
@@ -204,6 +209,16 @@ function setupGlobalListeners() {
     }
 }
 
+function setupDeckScreenListeners() {
+    document.querySelectorAll('button[data-deck-name]').forEach(btn => {
+        addListener(btn, 'click', (e) => {
+            const deckName = e.currentTarget.dataset.deckName;
+            ui.showNotification(`Kamu memilih untuk mempelajari dek: "${deckName}"`, 'info');
+            console.log(`Memulai sesi belajar untuk dek: ${deckName}`);
+        });
+    });
+}
+
 // =====================================================================
 // HANDLER & ACTIONS
 // =====================================================================
@@ -288,6 +303,7 @@ function handleRouteChange() {
     switch(hash) {
         case 'deck':
             ui.showScreen('deck', { decks: state.userData.savedDecks });
+            setupDeckScreenListeners(); 
             break;
         case '':
         case 'home':
