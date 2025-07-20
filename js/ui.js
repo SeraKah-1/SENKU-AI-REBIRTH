@@ -1,7 +1,7 @@
 /**
  * ui.js: Modul Pengelola Tampilan (User Interface)
- * * VERSI DIPERBAIKI: Menambahkan template untuk semua layar baru (hafalan, tes, deck),
- * fungsi untuk modal, dan menyempurnakan update UI.
+ * * VERSI FINAL: Mengembalikan semua template HTML ke dalam file ini, 
+ * menambahkan tombol simpan dek, dan menyempurnakan semua alur UI.
  * * Bertanggung jawab untuk semua hal yang berhubungan dengan render HTML dan
  * memperbarui DOM.
  */
@@ -81,7 +81,6 @@ const screenTemplates = {
         return `<div id="choice-screen" class="screen max-w-2xl w-full"><div class="card text-center"><i data-lucide="git-branch-plus" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i><h2 class="text-3xl font-bold">Pilih Arah Topik</h2><p class="text-secondary mb-6">AI telah menyiapkan beberapa fokus materi. Pilih salah satu.</p><div id="choices-container" class="space-y-4">${choiceButtons}</div><button id="confirm-choice-btn" class="btn btn-primary w-full mt-6 py-4" disabled>Buatkan Materi</button></div></div>`;
     },
 
-    // PERBAIKAN: Template baru untuk layar hafalan
     memorize: (data) => `
         <div id="memorize-screen" class="screen max-w-3xl w-full">
             <div class="card">
@@ -100,7 +99,6 @@ const screenTemplates = {
             </div>
         </div>`,
     
-    // PERBAIKAN: Template baru untuk layar tes
     test: ({ card, index, total }) => `
         <div id="test-screen" class="screen max-w-2xl w-full">
             <div class="card">
@@ -116,9 +114,23 @@ const screenTemplates = {
             </div>
         </div>`,
 
-    results: ({ score, total }) => `<div id="results-screen" class="screen max-w-lg w-full"><div class="card text-center"><i data-lucide="party-popper" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i><h2 class="text-3xl font-bold">Sesi Selesai!</h2><div class="bg-accent-secondary p-6 rounded-xl my-6"><p class="text-lg text-secondary">Skor Akhir</p><p id="final-score" class="text-6xl font-bold text-accent-primary my-2">${score}/${total}</p></div><button id="restart-btn" class="btn btn-primary w-full mt-6 py-4">Belajar Topik Baru</button></div></div>`,
+    // PERBAIKAN KRUSIAL: Menambahkan tombol "Simpan Kartu ke Deck"
+    results: ({ score, total }) => `
+        <div id="results-screen" class="screen max-w-lg w-full">
+            <div class="card text-center">
+                <i data-lucide="party-popper" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i>
+                <h2 class="text-3xl font-bold">Sesi Selesai!</h2>
+                <div class="bg-accent-secondary p-6 rounded-xl my-6">
+                    <p class="text-lg text-secondary">Skor Akhir</p>
+                    <p id="final-score" class="text-6xl font-bold text-accent-primary my-2">${score}/${total}</p>
+                </div>
+                <div class="mt-6 w-full space-y-3">
+                    <button id="save-deck-btn" class="btn btn-secondary w-full py-4 text-lg">Simpan Kartu ke Deck</button>
+                    <button id="restart-btn" class="btn btn-primary w-full py-4 text-lg">Belajar Topik Baru</button>
+                </div>
+            </div>
+        </div>`,
     
-    // PERBAIKAN: Template baru untuk halaman deck
     deck: ({ decks }) => {
         const hasDecks = Object.keys(decks).length > 0;
         const deckList = hasDecks ? Object.entries(decks).map(([name, cards]) => `
@@ -127,7 +139,7 @@ const screenTemplates = {
                     <p class="font-bold">${name}</p>
                     <p class="text-sm text-secondary">${cards.length} kartu</p>
                 </div>
-                <button class="btn btn-primary text-sm py-2 px-4">Pelajari</button>
+                <button class="btn btn-primary text-sm py-2 px-4" data-deck-name="${name}">Pelajari</button>
             </div>
         `).join('') : '<p class="text-center text-secondary">Kamu belum punya deck tersimpan.</p>';
 
@@ -150,7 +162,6 @@ export function showScreen(screenId, data) {
             screenElement.classList.add('active');
             focusOnFirstElement(screenElement);
         }
-        // Pastikan ikon Lucide di-render ulang setiap ganti layar
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -167,7 +178,6 @@ export function switchModeView(mode) {
     document.getElementById('file-input-container').classList.toggle('hidden', mode !== 'file');
 }
 
-// PERBAIKAN: Disesuaikan dengan struktur data dari `main.js`
 export function updateFileProcessingView(result) {
     const fileNameDisplay = document.getElementById('file-name-display');
     if (!fileNameDisplay) return;
@@ -181,7 +191,6 @@ export function updateFileProcessingView(result) {
     }
 }
 
-// PERBAIKAN: Fungsi baru untuk menampilkan hasil tes di layar kuis
 export function showTestResult(isCorrect, correctAnswer) {
     const feedbackArea = document.getElementById('feedback-area');
     const answerInput = document.getElementById('answer-input');
@@ -221,7 +230,6 @@ export function triggerConfetti() {
     }
 }
 
-// PERBAIKAN: Fungsi baru untuk membuka/menutup modal
 export function toggleModal(modalId) {
     let modal = modalCache[modalId];
     if (!modal) {
@@ -229,19 +237,18 @@ export function toggleModal(modalId) {
         if (!modal) return;
         modalCache[modalId] = modal;
         
-        // Tambahkan listener untuk menutup modal
         const closeBtn = modal.querySelector('.close-modal-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => toggleModal(modalId));
         }
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) { // Hanya jika klik di area background gelap
+            if (e.target === modal) {
                 toggleModal(modalId);
             }
         });
     }
     modal.classList.toggle('hidden');
-    modal.classList.toggle('flex'); // Gunakan flex untuk centering
+    modal.classList.toggle('flex');
 }
 
 function focusOnFirstElement(container) {
