@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL: Menambahkan fungsionalitas Hapus dan Ganti Nama Deck.
+ * * VERSI FINAL (STABIL): Memperbaiki event listener di layar dek.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -181,20 +181,24 @@ function setupResultsScreenListeners() {
     addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
-// PERBAIKAN DI SINI: Menambahkan listener untuk semua tombol di layar dek
+// PERBAIKAN UTAMA DI SINI: Memberikan listener ke tiap jenis tombol secara langsung
 function setupDeckScreenListeners() {
-    addScreenListener(document.querySelector('#deck-screen'), 'click', (e) => {
-        const studyBtn = e.target.closest('.study-deck-btn');
-        const renameBtn = e.target.closest('.rename-deck-btn');
-        const deleteBtn = e.target.closest('.delete-deck-btn');
+    document.querySelectorAll('.study-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => {
+            handleStudyDeck(e.currentTarget.dataset.deckName);
+        });
+    });
 
-        if (studyBtn) {
-            handleStudyDeck(studyBtn.dataset.deckName);
-        } else if (renameBtn) {
-            handleRenameDeck(renameBtn.dataset.deckName);
-        } else if (deleteBtn) {
-            handleDeleteDeck(deleteBtn.dataset.deckName);
-        }
+    document.querySelectorAll('.rename-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => {
+            handleRenameDeck(e.currentTarget.dataset.deckName);
+        });
+    });
+
+    document.querySelectorAll('.delete-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => {
+            handleDeleteDeck(e.currentTarget.dataset.deckName);
+        });
     });
 }
 
@@ -257,25 +261,23 @@ function handleStudyDeck(deckName) {
     }
 }
 
-// FUNGSI BARU: Logika untuk mengganti nama dek
 function handleRenameDeck(oldName) {
     const newName = prompt(`Masukkan nama baru untuk dek "${oldName}":`, oldName);
     if (newName && newName.trim() !== "" && newName.trim() !== oldName) {
         if (deck.renameDeck(oldName, newName)) {
             ui.showNotification(`Nama dek diubah menjadi "${newName}"`, 'success');
-            handleRouteChange(); // Muat ulang layar dek untuk melihat perubahan
+            handleRouteChange();
         } else {
             ui.showNotification("Nama dek sudah ada atau tidak valid.", "error");
         }
     }
 }
 
-// FUNGSI BARU: Logika untuk menghapus dek
 function handleDeleteDeck(deckName) {
     if (confirm(`Apakah kamu yakin ingin menghapus dek "${deckName}"? Aksi ini tidak bisa dibatalkan.`)) {
         deck.deleteDeck(deckName);
         ui.showNotification(`Deck "${deckName}" telah dihapus.`, 'success');
-        handleRouteChange(); // Muat ulang layar dek
+        handleRouteChange();
     }
 }
 
