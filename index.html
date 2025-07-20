@@ -3,33 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Memuat file CSS Eksternal -->
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Judul Aplikasi -->
     <title>Berotak Senku - Asisten Belajar AI</title>
 
-    <!-- Meta, PWA, Favicon, dll. (Tidak ada perubahan di sini) -->
+    <!-- Meta, PWA, Favicon, dll. -->
     <meta name="description" content="Ubah topik, teks, atau dokumen apa pun menjadi sesi belajar interaktif dengan ringkasan dan kartu belajar yang dibuat oleh AI.">
-    <meta name="keywords" content="belajar, flashcard, AI, asisten belajar, Senku, anki, kuis, pdf, docx">
-    <meta name="author" content="Senku AI Team">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <link rel="icon" href="https://placehold.co/32x32/4f46e5/ffffff?text=S">
-    <link rel="apple-touch-icon" href="https://placehold.co/180x180/4f46e5/ffffff?text=Senku">
-
-    <!-- ===================================================================== -->
-    <!-- STYLESHEET & LIBRARY PIHAK KETIGA -->
-    <!-- ===================================================================== -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- PERBAIKAN KRUSIAL: Menggunakan library 'lucide', bukan 'lucide-react' -->
+    <!-- Library Pihak Ketiga -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-
 </head>
 <body class="bg-primary text-primary transition-colors duration-300">
 
@@ -42,12 +28,9 @@
             <span class="text-xl font-bold text-primary hidden sm:block">Berotak Senku</span>
         </a>
         <nav class="flex items-center gap-3">
-            <!-- PERBAIKAN: Sedikit menebalkan border agar tombol lebih jelas -->
+            <!-- PERUBAHAN: Tombol Pengaturan yang bermasalah sudah DIHAPUS -->
             <button id="view-deck-btn" title="Lihat Deck Kartu" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition border border-border-color">
                 <i data-lucide="layers" class="w-6 h-6 text-accent-primary"></i>
-            </button>
-            <button id="settings-btn" title="Pengaturan" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition border border-border-color">
-                <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
             </button>
         </nav>
     </header>
@@ -60,40 +43,23 @@
         <p>&copy; 2025 Berotak Senku. Dibuat untuk mempercepat proses belajar.</p>
     </footer>
 
-    <!-- MODAL & NOTIFIKASI -->
+    <!-- NOTIFIKASI -->
     <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50"></div>
     
-    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="card p-6 sm:p-8 w-11/12 max-w-md m-4">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Pengaturan</h2>
-                <button id="close-settings-btn" class="close-modal-btn p-1 rounded-full hover:bg-tertiary">
-                    <i data-lucide="x" class="w-6 h-6"></i>
-                </button>
+    <!-- PERUBAHAN BESAR: Modal Pengaturan DIHAPUS dan diganti dengan widget ini -->
+    <div id="settings-widget" class="fixed bottom-4 left-4 z-50">
+        <div class="card p-4 space-y-3 w-64 shadow-2xl">
+            <div>
+                <label for="api-key-input" class="block text-xs font-medium text-secondary">Google AI API Key</label>
+                <input type="password" id="api-key-input" class="w-full mt-1 p-2 text-xs border border-border-color rounded-md focus:ring-2 focus:ring-accent-primary bg-secondary" placeholder="Opsional">
             </div>
-            
-            <div class="space-y-6">
-                <!-- Kolom Input API Key -->
-                <div>
-                    <label for="api-key-input" class="block font-medium text-secondary">Google AI API Key (Opsional)</label>
-                    <input type="password" id="api-key-input" class="w-full mt-1 p-2 border border-border-color rounded-md focus:ring-2 focus:ring-accent-primary bg-secondary" placeholder="Masukkan API Key jika proxy bermasalah">
-                    <p class="text-xs text-secondary mt-1">Kunci ini disimpan di browsermu saja.</p>
-                </div>
-                <!-- Pilihan Tema -->
-                <div>
-                    <label for="theme-selector" class="block font-medium text-secondary">Tema Aplikasi:</label>
-                    <select id="theme-selector" class="w-full mt-1 p-2 border border-border-color rounded-md focus:ring-2 focus:ring-accent-primary bg-secondary">
-                        <option value="light">Terang (Light)</option>
-                        <option value="dark">Gelap (Dark)</option>
-                        <option value="system">Sesuai Sistem</option>
-                    </select>
-                </div>
-                <!-- Tombol Hapus Deck -->
-                <div>
-                    <button id="clear-deck-btn" class="w-full bg-error-color text-white font-bold py-2 px-4 rounded-lg hover:brightness-90 transition">
-                        Hapus Semua Kartu di Deck
-                    </button>
-                </div>
+            <div>
+                <label for="theme-selector" class="block text-xs font-medium text-secondary">Tema</label>
+                <select id="theme-selector" class="w-full mt-1 p-2 text-xs border border-border-color rounded-md focus:ring-2 focus:ring-accent-primary bg-secondary">
+                    <option value="light">Terang</option>
+                    <option value="dark">Gelap</option>
+                    <option value="system">Sistem</option>
+                </select>
             </div>
         </div>
     </div>
@@ -101,7 +67,7 @@
     <!-- SCRIPT UTAMA APLIKASI -->
     <script type="module" src="./js/main.js"></script>
     <script>
-        // Inisialisasi Lucide Icons sekali setelah semua elemen HTML dimuat
+        // Inisialisasi Lucide Icons
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });
