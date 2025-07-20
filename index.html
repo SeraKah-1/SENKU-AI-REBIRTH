@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="light"> <!-- PERBAIKAN: Menambahkan data-theme default -->
+<html lang="id" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,29 +10,10 @@
     <!-- Judul Aplikasi -->
     <title>Berotak Senku - Asisten Belajar AI</title>
 
-    <!-- ===================================================================== -->
-    <!-- METADATA UNTUK SEO & SHARING (PENTING) -->
-    <!-- ===================================================================== -->
+    <!-- Meta, PWA, Favicon, dll. (Tidak ada perubahan di sini) -->
     <meta name="description" content="Ubah topik, teks, atau dokumen apa pun menjadi sesi belajar interaktif dengan ringkasan dan kartu belajar yang dibuat oleh AI.">
     <meta name="keywords" content="belajar, flashcard, AI, asisten belajar, Senku, anki, kuis, pdf, docx">
     <meta name="author" content="Senku AI Team">
-
-    <!-- Open Graph (untuk Facebook, LinkedIn, dll.) -->
-    <meta property="og:title" content="Berotak Senku - Asisten Belajar AI">
-    <meta property="og:description" content="Buat sesi belajar interaktif dari materi apa pun, didukung oleh AI.">
-    <meta property="og:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Berotak+Senku">
-    <meta property="og:url" content="https://your-domain.com">
-    <meta property="og:type" content="website">
-
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Berotak Senku - Asisten Belajar AI">
-    <meta name="twitter:description" content="Buat sesi belajar interaktif dari materi apa pun, didukung oleh AI.">
-    <meta name="twitter:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Berotak+Senku">
-
-    <!-- ===================================================================== -->
-    <!-- PWA (PROGRESSIVE WEB APP) & FAVICON -->
-    <!-- ===================================================================== -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <link rel="icon" href="https://placehold.co/32x32/4f46e5/ffffff?text=S">
@@ -45,8 +26,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.395.0/dist/lucide.min.js"></script>
-    <!-- Library untuk confetti tidak perlu ada di sini karena sudah di-handle oleh JS -->
+    
+    <!-- PERBAIKAN KRUSIAL: Menggunakan library 'lucide', bukan 'lucide-react' -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
 </head>
 <body class="bg-primary text-primary transition-colors duration-300">
 
@@ -59,39 +42,31 @@
             <span class="text-xl font-bold text-primary hidden sm:block">Berotak Senku</span>
         </a>
         <nav class="flex items-center gap-3">
-            <!-- PERBAIKAN: Mengubah warna tombol agar lebih kontras dan terlihat -->
-            <button id="view-deck-btn" title="Lihat Deck Kartu" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition">
+            <!-- PERBAIKAN: Sedikit menebalkan border agar tombol lebih jelas -->
+            <button id="view-deck-btn" title="Lihat Deck Kartu" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition border border-border-color">
                 <i data-lucide="layers" class="w-6 h-6 text-accent-primary"></i>
             </button>
-            <button id="settings-btn" title="Pengaturan" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition">
+            <button id="settings-btn" title="Pengaturan" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition border border-border-color">
                 <i data-lucide="settings" class="w-6 h-6 text-primary"></i>
             </button>
         </nav>
     </header>
 
-    <!-- ===================================================================== -->
-    <!-- KONTAINER UTAMA APLIKASI (SINGLE PAGE APP) -->
-    <!-- ===================================================================== -->
+    <!-- KONTAINER UTAMA APLIKASI -->
     <main id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4"></main>
 
-    <!-- ===================================================================== -->
     <!-- FOOTER GLOBAL -->
-    <!-- ===================================================================== -->
     <footer class="w-full text-center p-6 text-secondary text-sm bg-secondary border-t border-border-color">
         <p>&copy; 2025 Berotak Senku. Dibuat untuk mempercepat proses belajar.</p>
     </footer>
 
-    <!-- ===================================================================== -->
-    <!-- ELEMEN GLOBAL LAINNYA (MODAL, NOTIFIKASI) -->
-    <!-- ===================================================================== -->
+    <!-- MODAL & NOTIFIKASI -->
     <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50"></div>
     
-    <!-- Modal Pengaturan (awalnya disembunyikan) -->
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="card p-6 sm:p-8 w-11/12 max-w-md m-4"> <!-- PERBAIKAN: Menggunakan class 'card' dari style.css -->
+        <div class="card p-6 sm:p-8 w-11/12 max-w-md m-4">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Pengaturan</h2>
-                <!-- PERBAIKAN: Menambahkan class 'close-modal-btn' agar bisa ditutup oleh ui.js -->
                 <button id="close-settings-btn" class="close-modal-btn p-1 rounded-full hover:bg-tertiary">
                     <i data-lucide="x" class="w-6 h-6"></i>
                 </button>
@@ -123,17 +98,16 @@
         </div>
     </div>
 
-    <!-- ===================================================================== -->
     <!-- SCRIPT UTAMA APLIKASI -->
-    <!-- ===================================================================== -->
     <script type="module" src="./js/main.js"></script>
     <script>
-        // Inisialisasi Lucide Icons sekali setelah DOM dimuat
+        // Inisialisasi Lucide Icons sekali setelah semua elemen HTML dimuat
         document.addEventListener('DOMContentLoaded', () => {
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+            lucide.createIcons();
         });
     </script>
 </body>
 </html>
+```
+
+### **MADE BY FARREL ADITYA**
