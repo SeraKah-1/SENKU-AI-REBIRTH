@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL (STABIL): Memperbaiki event listener di layar dek.
+ * * VERSI FINAL (STABIL): Memperbaiki bug "undefined" untuk nama dek dari file upload.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -181,7 +181,6 @@ function setupResultsScreenListeners() {
     addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
-// PERBAIKAN UTAMA DI SINI: Memberikan listener ke tiap jenis tombol secara langsung
 function setupDeckScreenListeners() {
     document.querySelectorAll('.study-deck-btn').forEach(btn => {
         addScreenListener(btn, 'click', (e) => {
@@ -281,16 +280,20 @@ function handleDeleteDeck(deckName) {
     }
 }
 
-
 function switchMode(mode) {
     actions.setMode(mode);
     ui.switchModeView(mode);
 }
 
+// PERBAIKAN UTAMA DI SINI
 function handleFileProcessed(result) {
+    // Selalu update tampilan UI
     ui.updateFileProcessingView(result);
+
+    // Hanya jika file siap, set data ke state
     if (result.status === 'ready') {
         actions.setSourceText(result.content.text);
+        // Baris inilah yang memperbaiki bug: pastikan judul file disimpan sebagai topik kuis
         actions.setQuizDetails(result.content.title, state.quiz.difficulty);
         ui.showNotification('File berhasil dibaca!', 'success');
     } else if (result.status === 'error') {
