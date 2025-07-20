@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL - DIPERBAIKI: Memperbaiki bug inisialisasi yang menyebabkan layar kosong.
+ * * VERSI FINAL - DIPERBAIKI: Memperbaiki bug listener yang hilang di layar pilihan.
  */
 
 // =====================================================================
@@ -46,22 +46,33 @@ const learningFlow = {
                 ui.showScreen('start');
                 setupStartScreenListeners();
                 break;
+            
+            // PERBAIKAN UTAMA DI SINI
             case 'LOADING_CHOICES':
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
                     const choiceData = await api.getChoices(state.quiz.topic);
+                    
+                    // Alih-alih transisi, kita langsung ubah state secara manual
+                    // lalu render UI untuk state baru tersebut. Ini mencegah listener terhapus.
+                    this.currentState = 'CHOOSING'; 
                     ui.showScreen('choice', choiceData.choices);
                     setupChoiceScreenListeners();
-                    await this.transition('SUCCESS');
+
                 }, { fallbackState: 'IDLE' });
                 break;
+            
+            // State CHOOSING sekarang tidak perlu logika khusus di sini,
+            // karena sudah ditangani oleh state LOADING_CHOICES.
+            // Aplikasi akan "diam" di state CHOOSING menunggu input pengguna.
+
             case 'LOADING_DECK':
                 ui.showScreen('loading', 'Membuat materi belajar...');
                  await handleAsync(async () => {
                     const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
                     const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode);
                     actions.setGeneratedData(generatedData);
-                    await this.transition('SUCCESS');
+                    await this.transition('SUCCESS'); // Transisi ke MEMORIZING
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'MEMORIZING':
@@ -89,7 +100,7 @@ const learningFlow = {
 };
 
 // =====================================================================
-// PENGELOLA EVENT LISTENERS
+// PENGELOLA EVENT LISTENERS (Tidak berubah)
 // =====================================================================
 let activeListeners = [];
 
@@ -108,7 +119,7 @@ function cleanupListeners() {
 }
 
 // =====================================================================
-// KUMPULAN FUNGSI SETUP LISTENER
+// KUMPULAN FUNGSI SETUP LISTENER (Tidak berubah)
 // =====================================================================
 
 function setupStartScreenListeners() {
@@ -189,7 +200,6 @@ function setupResultsScreenListeners() {
 
 function setupGlobalListeners() {
     addListener(document.getElementById('view-deck-btn'), 'click', () => window.location.hash = 'deck');
-    // Logika untuk widget pengaturan
     const apiKeyInput = document.getElementById('api-key-input');
     const themeSelector = document.getElementById('theme-selector');
 
@@ -204,7 +214,7 @@ function setupGlobalListeners() {
 }
 
 // =====================================================================
-// HANDLER & ACTIONS
+// HANDLER & ACTIONS (Tidak berubah)
 // =====================================================================
 async function handleStart(event) {
     event.preventDefault();
@@ -276,13 +286,12 @@ async function handleAsync(asyncOperation, options = {}) {
 }
 
 // =====================================================================
-// ROUTER (NAVIGASI)
+// ROUTER (NAVIGASI) & INISIALISASI (Tidak berubah)
 // =====================================================================
 function handleRouteChange() {
     cleanupListeners();
     const hash = window.location.hash.substring(1);
     
-    // Siapkan listener global setiap kali "halaman" berganti.
     setupGlobalListeners(); 
 
     switch(hash) {
@@ -292,23 +301,17 @@ function handleRouteChange() {
         case '':
         case 'home':
         default:
-            // Selalu mulai dari awal jika tidak ada hash atau hash-nya home
             learningFlow.currentState = 'IDLE';
             learningFlow.runStateLogic();
             break;
     }
 }
 
-// =====================================================================
-// INISIALISASI APLIKASI
-// =====================================================================
 function init() {
     initState();
     ui.initUI();
     
     window.addEventListener('hashchange', handleRouteChange);
-    
-    // Panggil handleRouteChange sekali untuk merender layar awal.
     handleRouteChange(); 
     
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
