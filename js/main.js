@@ -1,6 +1,6 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL - DIPERBAIKI: Memperbaiki bug listener yang hilang di layar pilihan.
+ * * VERSI FINAL - DIPERBAIKI: Memperbaiki bug tombol deck yang tidak merespons.
  */
 
 // =====================================================================
@@ -33,6 +33,8 @@ const learningFlow = {
             console.log(`State Transition: ${this.currentState} -> ${nextState}`);
             this.currentState = nextState;
             cleanupListeners();
+            // PERBAIKAN DI SINI: Pasang kembali listener global setelah bersih-bersih.
+            setupGlobalListeners(); 
             await this.runStateLogic();
         } else {
             console.error(`Transisi tidak valid dari ${this.currentState} dengan aksi ${action}`);
@@ -46,33 +48,22 @@ const learningFlow = {
                 ui.showScreen('start');
                 setupStartScreenListeners();
                 break;
-            
-            // PERBAIKAN UTAMA DI SINI
             case 'LOADING_CHOICES':
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
                     const choiceData = await api.getChoices(state.quiz.topic);
-                    
-                    // Alih-alih transisi, kita langsung ubah state secara manual
-                    // lalu render UI untuk state baru tersebut. Ini mencegah listener terhapus.
                     this.currentState = 'CHOOSING'; 
                     ui.showScreen('choice', choiceData.choices);
                     setupChoiceScreenListeners();
-
                 }, { fallbackState: 'IDLE' });
                 break;
-            
-            // State CHOOSING sekarang tidak perlu logika khusus di sini,
-            // karena sudah ditangani oleh state LOADING_CHOICES.
-            // Aplikasi akan "diam" di state CHOOSING menunggu input pengguna.
-
             case 'LOADING_DECK':
                 ui.showScreen('loading', 'Membuat materi belajar...');
                  await handleAsync(async () => {
                     const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
                     const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode);
                     actions.setGeneratedData(generatedData);
-                    await this.transition('SUCCESS'); // Transisi ke MEMORIZING
+                    await this.transition('SUCCESS');
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'MEMORIZING':
@@ -100,7 +91,7 @@ const learningFlow = {
 };
 
 // =====================================================================
-// PENGELOLA EVENT LISTENERS (Tidak berubah)
+// PENGELOLA EVENT LISTENERS
 // =====================================================================
 let activeListeners = [];
 
@@ -119,7 +110,7 @@ function cleanupListeners() {
 }
 
 // =====================================================================
-// KUMPULAN FUNGSI SETUP LISTENER (Tidak berubah)
+// KUMPULAN FUNGSI SETUP LISTENER
 // =====================================================================
 
 function setupStartScreenListeners() {
@@ -214,7 +205,7 @@ function setupGlobalListeners() {
 }
 
 // =====================================================================
-// HANDLER & ACTIONS (Tidak berubah)
+// HANDLER & ACTIONS
 // =====================================================================
 async function handleStart(event) {
     event.preventDefault();
@@ -286,13 +277,13 @@ async function handleAsync(asyncOperation, options = {}) {
 }
 
 // =====================================================================
-// ROUTER (NAVIGASI) & INISIALISASI (Tidak berubah)
+// ROUTER (NAVIGASI) & INISIALISASI
 // =====================================================================
 function handleRouteChange() {
     cleanupListeners();
-    const hash = window.location.hash.substring(1);
-    
     setupGlobalListeners(); 
+
+    const hash = window.location.hash.substring(1);
 
     switch(hash) {
         case 'deck':
