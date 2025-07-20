@@ -1,13 +1,12 @@
 /**
  * state.js: Sumber Kebenaran Tunggal (Single Source of Truth)
+ * * VERSI DIPERBAIKI: Menambahkan action baru untuk alur kuis dan memastikan
+ * semua state di-reset dengan benar.
  * * Menyimpan semua data dan status aplikasi di satu tempat yang terorganisir.
- * * Menyediakan 'actions' sebagai satu-satunya cara yang sah untuk mengubah state,
- * membuat alur data menjadi lebih terkontrol dan mudah di-debug.
  */
 
 // =====================================================================
 // OBJEK STATE UTAMA
-// Dikelompokkan menjadi beberapa "slice" atau bagian yang logis.
 // =====================================================================
 export const state = {
     // State yang berhubungan dengan sesi dan UI saat ini
@@ -22,7 +21,7 @@ export const state = {
         generatedData: null,
         currentCardIndex: 0,
         score: 0,
-        sourceText: '', // Menambahkan properti untuk menyimpan teks dari file
+        sourceText: '', // Menyimpan teks dari file
     },
     // State yang berhubungan dengan data pengguna yang disimpan
     userData: {
@@ -31,7 +30,7 @@ export const state = {
     // State untuk pengaturan aplikasi
     settings: {
         theme: 'system', // 'light', 'dark', atau 'system'
-        apiKey: '',      // FITUR BARU: Menyimpan API Key pengguna untuk debugging
+        apiKey: '',      // Menyimpan API Key pengguna untuk debugging
     }
 };
 
@@ -49,11 +48,8 @@ export const actions = {
 
     // --- Actions untuk Kuis ---
     setQuizDetails(topic, difficulty) {
-        state.quiz = {
-            ...state.quiz,
-            topic: topic,
-            difficulty: difficulty,
-        };
+        state.quiz.topic = topic;
+        state.quiz.difficulty = difficulty;
     },
     setSourceText(text) {
         state.quiz.sourceText = text;
@@ -62,20 +58,20 @@ export const actions = {
         state.quiz.generatedData = data;
     },
     incrementScore() {
-        state.quiz = {
-            ...state.quiz,
-            score: state.quiz.score + 1,
-        };
+        state.quiz.score++;
+    },
+    // PERBAIKAN: Action baru untuk pindah ke kartu berikutnya
+    goToNextCard() {
+        state.quiz.currentCardIndex++;
     },
     resetQuiz() {
-        state.quiz = {
-            ...state.quiz,
-            topic: '',
-            generatedData: null,
-            currentCardIndex: 0,
-            score: 0,
-            sourceText: '',
-        };
+        // PERBAIKAN: Memastikan semua state kuis kembali ke nilai awal
+        state.quiz.topic = '';
+        state.quiz.difficulty = document.querySelector('.difficulty-btn.selected')?.dataset.difficulty || 'Mudah';
+        state.quiz.generatedData = null;
+        state.quiz.currentCardIndex = 0;
+        state.quiz.score = 0;
+        state.quiz.sourceText = '';
     },
 
     // --- Actions untuk Data Pengguna ---
@@ -88,33 +84,23 @@ export const actions = {
             return;
         }
 
-        state.userData = {
-            ...state.userData,
-            savedDecks: {
-                ...state.userData.savedDecks,
-                [topicKey]: [...oldDeck, cardData]
-            }
+        state.userData.savedDecks = {
+            ...state.userData.savedDecks,
+            [topicKey]: [...oldDeck, cardData]
         };
         this.saveUserDataToStorage();
     },
     clearAllDecks() {
-        state.userData = {
-            ...state.userData,
-            savedDecks: {}
-        };
+        state.userData.savedDecks = {};
         this.saveUserDataToStorage();
     },
 
     // --- Actions untuk Pengaturan ---
     setTheme(newTheme) {
         state.settings.theme = newTheme;
-        document.body.dataset.theme = newTheme;
+        document.documentElement.dataset.theme = newTheme; // Mengubah tema di elemen html
         this.saveSettingsToStorage();
     },
-    /**
-     * FITUR BARU: Action untuk menyimpan API Key dari input pengguna.
-     * @param {string} key - API Key yang dimasukkan pengguna.
-     */
     setApiKey(key) {
         state.settings.apiKey = key;
         this.saveSettingsToStorage();
@@ -142,12 +128,13 @@ export function init() {
     if (savedUserData) {
         Object.assign(state.userData, JSON.parse(savedUserData));
     }
-
+    
+    // Terapkan tema saat aplikasi dimuat
     if (state.settings.theme === 'system') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.body.dataset.theme = prefersDark ? 'dark' : 'light';
+        document.documentElement.dataset.theme = prefersDark ? 'dark' : 'light';
     } else {
-        document.body.dataset.theme = state.settings.theme;
+        document.documentElement.dataset.theme = state.settings.theme;
     }
 
     console.log("State berhasil diinisialisasi.", state);
