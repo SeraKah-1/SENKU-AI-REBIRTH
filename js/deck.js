@@ -1,33 +1,12 @@
 /**
  * =====================================================================
- * File: js/deck.js (Versi Final - SUDAH DIPERBAIKI)
+ * File: js/deck.js (Versi Final - Bersih & Benar)
  * =====================================================================
- *
- * deck.js: Modul Manajemen Pengetahuan Pribadi
- * * Mengelola semua logika yang berhubungan dengan kartu belajar yang disimpan pengguna.
- * * Menerapkan Spaced Repetition System (SRS) untuk sesi belajar yang efisien.
- * * Menyediakan fungsi untuk CRUD (Create, Read, Update, Delete) pada kartu dan deck.
- * * Modul ini sangat bergantung pada 'state' dan 'actions' dari state.js.
  */
-
-// Impor state dan actions dari pusat data aplikasi.
 import { state, actions } from './state.js';
-
-// =====================================================================
-// KONFIGURASI & KONSTANTA
-// =====================================================================
 
 const SRS_INTERVALS = [1, 3, 7, 14, 30, 90, 180];
 
-// =====================================================================
-// FUNGSI UTAMA: MANAJEMEN KARTU
-// =====================================================================
-
-/**
- * Menyimpan sebuah kartu baru ke dalam deck yang sesuai.
- * @param {object} cardData - Objek kartu dasar, harus berisi { term, definition }.
- * @param {string} deckName - Nama dek tujuan kartu.
- */
 export function saveNewCard(cardData, deckName) {
     const newCard = {
         id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -37,68 +16,39 @@ export function saveNewCard(cardData, deckName) {
         masteryLevel: 0,
         nextReviewDate: new Date().toISOString(),
     };
-    // Panggil action dari state.js untuk menyimpan kartu ini, pastikan deckName disertakan.
     actions.saveCardToDeck(newCard, deckName);
 }
 
-/**
- * Memperbarui tingkat penguasaan (mastery) dan jadwal review kartu.
- * @param {string} deckName - Nama deck tempat kartu berada.
- * @param {string} cardId - ID unik dari kartu yang di-review.
- * @param {boolean} wasCorrect - Apakah jawaban pengguna untuk kartu ini benar.
- */
 export function updateCardMastery(deckName, cardId, wasCorrect) {
     const deck = state.userData.savedDecks[deckName];
     if (!deck) return;
-
     const cardIndex = deck.findIndex(c => c.id === cardId);
     if (cardIndex === -1) return;
-
     let updatedCard = { ...deck[cardIndex] };
-    
     if (wasCorrect) {
         updatedCard.masteryLevel = Math.min(updatedCard.masteryLevel + 1, SRS_INTERVALS.length - 1);
     } else {
         updatedCard.masteryLevel = Math.max(updatedCard.masteryLevel - 1, 0);
     }
-
     const intervalDays = SRS_INTERVALS[updatedCard.masteryLevel];
     const nextReview = new Date();
     nextReview.setDate(nextReview.getDate() + intervalDays);
     updatedCard.nextReviewDate = nextReview.toISOString();
-
     actions.updateCardInDeck(deckName, cardIndex, updatedCard);
 }
 
-// =====================================================================
-// FITUR BELAJAR & SESI
-// =====================================================================
-
-/**
- * Menyiapkan daftar kartu untuk sesi belajar dari sebuah deck.
- * @param {string} deckName - Nama deck yang akan dipelajari.
- * @returns {Array<object>} Daftar kartu yang sudah diurutkan.
- */
 export function startDeckStudySession(deckName) {
     const deck = state.userData.savedDecks[deckName];
     if (!deck || deck.length === 0) return [];
-
     const now = new Date();
-
     return [...deck].sort((a, b) => {
         const aIsDue = new Date(a.nextReviewDate) <= now;
         const bIsDue = new Date(b.nextReviewDate) <= now;
-
         if (aIsDue && !bIsDue) return -1;
         if (!aIsDue && bIsDue) return 1;
-
         return a.masteryLevel - b.masteryLevel;
     });
 }
-
-// =====================================================================
-// FITUR MANAJEMEN DECK & KARTU
-// =====================================================================
 
 export function deleteCard(deckName, cardId) {
     actions.removeCardFromDeck(deckName, cardId);
@@ -120,10 +70,6 @@ export function renameDeck(oldName, newName) {
 export function deleteDeck(deckName) {
     actions.removeDeckFromState(deckName);
 }
-
-// =====================================================================
-// FITUR LANJUTAN: IMPORT & EXPORT
-// =====================================================================
 
 export function exportDeckAsJson(deckName) {
     const deck = state.userData.savedDecks[deckName];
@@ -150,9 +96,8 @@ export async function importDeckFromJson(file, deckName) {
             try {
                 const importedCards = JSON.parse(event.target.result);
                 if (!Array.isArray(importedCards)) {
-                    throw new Error("Format JSON tidak valid, harus berupa array kartu.");
+                    throw new Error("Format JSON tidak valid.");
                 }
-                
                 let importedCount = 0;
                 importedCards.forEach(card => {
                     if (card.term && card.definition) {
@@ -161,7 +106,6 @@ export async function importDeckFromJson(file, deckName) {
                     }
                 });
                 resolve(importedCount);
-
             } catch (error) {
                 reject(new Error(`Gagal membaca file JSON: ${error.message}`));
             }
