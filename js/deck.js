@@ -32,7 +32,22 @@ const SRS_INTERVALS = [1, 3, 7, 14, 30, 90, 180];
  * data kartu dengan metadata penting untuk SRS.
  * @param {object} cardData - Objek kartu dasar, harus berisi { term, definition }.
  */
-export function saveNewCard(cardData) {
+/**
+ * =====================================================================
+ * File: js/deck.js (Perbaikan)
+ * =====================================================================
+ */
+
+// ... (kode lainnya tetap sama) ...
+
+/**
+ * Menyimpan sebuah kartu baru ke dalam deck yang sesuai.
+ * Ini adalah fungsi utama untuk menambahkan kartu, yang akan memperkaya
+ * data kartu dengan metadata penting untuk SRS.
+ * @param {object} cardData - Objek kartu dasar, harus berisi { term, definition }.
+ * @param {string} deckName - Nama dek tujuan kartu. <--- PERBAIKAN
+ */
+export function saveNewCard(cardData, deckName) { // TERIMA PARAMETER deckName
     // Buat objek kartu baru dengan struktur data yang diperkaya.
     const newCard = {
         id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // ID unik
@@ -41,6 +56,14 @@ export function saveNewCard(cardData) {
         dateSaved: new Date().toISOString(),
         masteryLevel: 0, // Mulai dari level 0 (Baru)
         nextReviewDate: new Date().toISOString(), // Jadwalkan untuk di-review segera
+    };
+
+    // Panggil action dari state.js untuk menyimpan kartu ini.
+    // Pastikan deckName diteruskan ke state management.
+    actions.saveCardToDeck(newCard, deckName); // <-- PERBAIKAN DI SINI
+}
+
+// ... (sisa kode di deck.js tidak perlu diubah) ...
     };
 
     // Panggil action dari state.js untuk menyimpan kartu ini.
