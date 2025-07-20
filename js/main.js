@@ -1,10 +1,7 @@
 /**
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * VERSI FINAL - GABUNGAN SEMUA PERBAIKAN:
- * - Memperbaiki bug layar kosong saat inisialisasi.
- * - Memperbaiki bug tombol pilihan topik yang tidak bisa diklik.
- * - Memperbaiki bug tombol "Lihat Deck" yang tidak merespons.
- * - Menambahkan fungsionalitas pada tombol "Pelajari" di layar dek.
+ * * VERSI FINAL (STABIL): Memisahkan listener global dan listener layar
+ * untuk mencegah bug layar kosong dan tombol tidak responsif.
  */
 
 // =====================================================================
@@ -36,9 +33,8 @@ const learningFlow = {
         if (nextState) {
             console.log(`State Transition: ${this.currentState} -> ${nextState}`);
             this.currentState = nextState;
-            cleanupListeners();
-            // Memastikan listener global selalu terpasang setelah transisi
-            setupGlobalListeners(); 
+            // PERBAIKAN: Hanya membersihkan listener spesifik layar
+            cleanupScreenListeners(); 
             await this.runStateLogic();
         } else {
             console.error(`Transisi tidak valid dari ${this.currentState} dengan aksi ${action}`);
@@ -56,7 +52,6 @@ const learningFlow = {
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
                     const choiceData = await api.getChoices(state.quiz.topic);
-                    // Langsung ubah state dan render UI, cegah transisi yang hapus listener
                     this.currentState = 'CHOOSING'; 
                     ui.showScreen('choice', choiceData.choices);
                     setupChoiceScreenListeners();
@@ -96,34 +91,57 @@ const learningFlow = {
 };
 
 // =====================================================================
-// PENGELOLA EVENT LISTENERS
+// PENGELOLA EVENT LISTENERS (DIPERBAIKI)
 // =====================================================================
-let activeListeners = [];
+// Array ini HANYA untuk listener yang spesifik per layar
+let activeScreenListeners = [];
 
-function addListener(element, event, handler) {
+function addScreenListener(element, event, handler) {
     if (element) {
         element.addEventListener(event, handler);
-        activeListeners.push({ element, event, handler });
+        activeScreenListeners.push({ element, event, handler });
     }
 }
 
-function cleanupListeners() {
-    activeListeners.forEach(({ element, event, handler }) => {
+function cleanupScreenListeners() {
+    activeScreenListeners.forEach(({ element, event, handler }) => {
         if (element) element.removeEventListener(event, handler);
     });
-    activeListeners = [];
+    activeScreenListeners = [];
 }
 
 // =====================================================================
 // KUMPULAN FUNGSI SETUP LISTENER
 // =====================================================================
 
+// Listener Global (dipasang sekali dan permanen)
+function setupGlobalListeners() {
+    // Tombol Deck
+    document.getElementById('view-deck-btn').addEventListener('click', () => {
+        window.location.hash = 'deck';
+    });
+    
+    // Widget Pengaturan
+    const apiKeyInput = document.getElementById('api-key-input');
+    const themeSelector = document.getElementById('theme-selector');
+
+    if (apiKeyInput) {
+        apiKeyInput.value = state.settings.apiKey;
+        apiKeyInput.addEventListener('change', (e) => actions.setApiKey(e.target.value));
+    }
+    if (themeSelector) {
+        themeSelector.value = state.settings.theme;
+        themeSelector.addEventListener('change', (e) => actions.setTheme(e.target.value));
+    }
+}
+
+// Listener spesifik per layar (menggunakan addScreenListener agar bisa dibersihkan)
 function setupStartScreenListeners() {
-    addListener(document.getElementById('start-form'), 'submit', handleStart);
-    addListener(document.getElementById('mode-topic-btn'), 'click', () => switchMode('topic'));
-    addListener(document.getElementById('mode-file-btn'), 'click', () => switchMode('file'));
+    addScreenListener(document.getElementById('start-form'), 'submit', handleStart);
+    addScreenListener(document.getElementById('mode-topic-btn'), 'click', () => switchMode('topic'));
+    addScreenListener(document.getElementById('mode-file-btn'), 'click', () => switchMode('file'));
     document.querySelectorAll('.difficulty-btn').forEach(btn => {
-        addListener(btn, 'click', () => {
+        addScreenListener(btn, 'click', () => {
             const difficulty = btn.dataset.difficulty;
             actions.setQuizDetails(state.quiz.topic, difficulty);
             document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('selected'));
@@ -137,7 +155,7 @@ function setupChoiceScreenListeners() {
     let selectedChoice = null;
     const confirmBtn = document.getElementById('confirm-choice-btn');
     document.querySelectorAll('.choice-btn').forEach(btn => {
-        addListener(btn, 'click', () => {
+        addScreenListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
             actions.setQuizDetails(selectedChoice, state.quiz.difficulty);
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
@@ -145,7 +163,7 @@ function setupChoiceScreenListeners() {
             if (confirmBtn) confirmBtn.disabled = false;
         });
     });
-    addListener(confirmBtn, 'click', () => {
+    addScreenListener(confirmBtn, 'click', () => {
         if (selectedChoice) {
             learningFlow.transition('CONFIRM');
         }
@@ -153,31 +171,28 @@ function setupChoiceScreenListeners() {
 }
 
 function setupMemorizeScreenListeners() {
-    addListener(document.getElementById('start-test-btn'), 'click', () => {
+    addScreenListener(document.getElementById('start-test-btn'), 'click', () => {
         learningFlow.transition('START_TEST');
     });
 }
 
 function setupTestScreenListeners() {
     const form = document.getElementById('test-form');
-    const answerInput = document.getElementById('answer-input');
-    const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
-
-    addListener(form, 'submit', (e) => {
+    addScreenListener(form, 'submit', (e) => {
         e.preventDefault();
+        const answerInput = document.getElementById('answer-input');
+        const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
         const userAnswer = answerInput.value.trim();
         const isCorrect = userAnswer.toLowerCase() === currentCard.term.toLowerCase();
         
-        if (isCorrect) {
-            actions.incrementScore();
-        }
+        if (isCorrect) actions.incrementScore();
         
         ui.showTestResult(isCorrect, currentCard.term);
 
         const nextButton = document.getElementById('next-question-btn');
         if (nextButton) {
             nextButton.focus();
-            addListener(nextButton, 'click', () => {
+            addScreenListener(nextButton, 'click', () => {
                 actions.goToNextCard();
                 if (state.quiz.currentCardIndex >= state.quiz.generatedData.flashcards.length) {
                     learningFlow.transition('COMPLETE');
@@ -190,31 +205,15 @@ function setupTestScreenListeners() {
 }
 
 function setupResultsScreenListeners() {
-    addListener(document.getElementById('restart-btn'), 'click', () => learningFlow.transition('RESTART'));
-    addListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
-}
-
-function setupGlobalListeners() {
-    addListener(document.getElementById('view-deck-btn'), 'click', () => window.location.hash = 'deck');
-    const apiKeyInput = document.getElementById('api-key-input');
-    const themeSelector = document.getElementById('theme-selector');
-
-    if (apiKeyInput) {
-        apiKeyInput.value = state.settings.apiKey;
-        addListener(apiKeyInput, 'change', (e) => actions.setApiKey(e.target.value));
-    }
-    if (themeSelector) {
-        themeSelector.value = state.settings.theme;
-        addListener(themeSelector, 'change', (e) => actions.setTheme(e.target.value));
-    }
+    addScreenListener(document.getElementById('restart-btn'), 'click', () => learningFlow.transition('RESTART'));
+    addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
 }
 
 function setupDeckScreenListeners() {
     document.querySelectorAll('button[data-deck-name]').forEach(btn => {
-        addListener(btn, 'click', (e) => {
+        addScreenListener(btn, 'click', (e) => {
             const deckName = e.currentTarget.dataset.deckName;
             ui.showNotification(`Kamu memilih untuk mempelajari dek: "${deckName}"`, 'info');
-            console.log(`Memulai sesi belajar untuk dek: ${deckName}`);
         });
     });
 }
@@ -295,8 +294,7 @@ async function handleAsync(asyncOperation, options = {}) {
 // ROUTER (NAVIGASI) & INISIALISASI
 // =====================================================================
 function handleRouteChange() {
-    cleanupListeners();
-    setupGlobalListeners(); 
+    cleanupScreenListeners(); // Hanya membersihkan listener spesifik layar
 
     const hash = window.location.hash.substring(1);
 
@@ -317,8 +315,11 @@ function handleRouteChange() {
 function init() {
     initState();
     ui.initUI();
+    // Pasang listener global hanya sekali saat aplikasi dimuat
+    setupGlobalListeners(); 
     
     window.addEventListener('hashchange', handleRouteChange);
+    // Panggil router untuk menampilkan layar awal
     handleRouteChange(); 
     
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
