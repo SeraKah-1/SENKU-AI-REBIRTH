@@ -1,19 +1,23 @@
 /**
  * =====================================================================
- * File: js/fileProcessor.worker.js (VERSI DIPERBAIKI)
+ * File: js/fileProcessor.worker.js (VERSI FINAL - STABIL)
  * =====================================================================
  *
  * fileProcessor.worker.js: Pekerja Latar Belakang (Analis Konten)
- * * FIX: Menonaktifkan sementara Tesseract.js (OCR) untuk mengatasi error 'importScripts'.
- * * Fokus pada fungsionalitas inti: PDF, DOCX, dan Teks.
+ * * FIX: Mengganti URL Mammoth.js ke versi non-browser untuk mengatasi
+ * error "document is not defined" di dalam Web Worker.
+ * * FIX: Menonaktifkan sementara Tesseract.js (OCR).
  */
 
 // =====================================================================
-// IMPOR LIBRARY PIHAK KETIGA
+// IMPOR LIBRARY PIHAK KETIGA (DIPERBAIKI)
 // =====================================================================
-self.importScripts('https://unpkg.com/mammoth@1.5.1/mammoth.browser.min.js');
+// PERBAIKAN: Gunakan 'mammoth.min.js' BUKAN 'mammoth.browser.min.js'
+self.importScripts('https://unpkg.com/mammoth@1.5.1/mammoth.min.js');
 self.importScripts('https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js');
-// self.importScripts('https://unpkg.com/tesseract.js@2.1.0/dist/tesseract.min.js'); // <-- DINONAKTIFKAN SEMENTARA
+
+// Tesseract.js (OCR) masih dinonaktifkan
+// self.importScripts('https://unpkg.com/tesseract.js@2.1.0/dist/tesseract.min.js'); 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
 
 
@@ -57,7 +61,6 @@ self.onmessage = async (event) => {
         } else if (file.name.endsWith('.docx')) {
             rawText = await extractTextFromDocx(file);
         } else if (file.type.startsWith('image/')) {
-            // FIX: Beri pesan error yang jelas karena OCR dinonaktifkan
             throw new Error('Pemrosesan gambar (OCR) saat ini sedang dalam perbaikan.');
         } else if (file.type === 'text/plain' || file.name.endsWith('.md')) {
             rawText = await extractTextFromTextFile(file);
