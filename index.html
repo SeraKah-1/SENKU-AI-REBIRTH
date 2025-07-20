@@ -6,47 +6,37 @@
     <link rel="stylesheet" href="style.css">
     <title>Berotak Senku - Asisten Belajar AI</title>
 
-    <!-- Meta, PWA, Favicon, dll. -->
     <meta name="description" content="Ubah topik, teks, atau dokumen apa pun menjadi sesi belajar interaktif dengan ringkasan dan kartu belajar yang dibuat oleh AI.">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#4f46e5">
     <link rel="icon" href="https://placehold.co/32x32/4f46e5/ffffff?text=S">
     
-    <!-- Library Pihak Ketiga -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body class="bg-primary text-primary transition-colors duration-300">
 
-    <!-- ===================================================================== -->
-    <!-- HEADER GLOBAL -->
-    <!-- ===================================================================== -->
     <header class="w-full p-4 flex justify-between items-center bg-secondary shadow-md sticky top-0 z-40">
         <a href="#" onclick="window.location.hash=''; window.location.reload();" class="flex items-center gap-3">
             <img src="https://placehold.co/40x40/4f46e5/ffffff?text=S" alt="Logo Berotak Senku" class="h-10 w-10 rounded-lg">
             <span class="text-xl font-bold text-primary hidden sm:block">Berotak Senku</span>
         </a>
         <nav class="flex items-center gap-3">
-            <!-- PERUBAHAN: Tombol Pengaturan yang bermasalah sudah DIHAPUS -->
             <button id="view-deck-btn" title="Lihat Deck Kartu" class="bg-tertiary p-2 rounded-lg hover:brightness-95 transition border border-border-color">
                 <i data-lucide="layers" class="w-6 h-6 text-accent-primary"></i>
             </button>
         </nav>
     </header>
 
-    <!-- KONTAINER UTAMA APLIKASI -->
     <main id="app-container" class="min-h-screen flex flex-col items-center justify-center p-4"></main>
 
-    <!-- FOOTER GLOBAL -->
     <footer class="w-full text-center p-6 text-secondary text-sm bg-secondary border-t border-border-color">
         <p>&copy; 2025 Berotak Senku. Dibuat untuk mempercepat proses belajar.</p>
     </footer>
 
-    <!-- NOTIFIKASI -->
     <div id="notification-container" class="fixed bottom-5 right-5 w-80 space-y-3 z-50"></div>
     
-    <!-- PERUBAHAN BESAR: Modal Pengaturan DIHAPUS dan diganti dengan widget ini -->
     <div id="settings-widget" class="fixed bottom-4 left-4 z-50">
         <div class="card p-4 space-y-3 w-64 shadow-2xl">
             <div>
@@ -64,7 +54,6 @@
         </div>
     </div>
 
-    <!-- SCRIPT UTAMA APLIKASI -->
     <script type="module" src="./js/main.js"></script>
     <script>
         // Inisialisasi Lucide Icons
@@ -74,6 +63,3 @@
     </script>
 </body>
 </html>
-```
-
-### **MADE BY FARREL ADITYA**
