@@ -1,9 +1,11 @@
 /**
  * =====================================================================
- * File: js/state.js (VERSI DIPERBAIKI)
+ * File: js/state.js (VERSI FINAL - DIPERBAIKI & TERINTEGRASI)
  * =====================================================================
  *
  * state.js: Sumber Kebenaran Tunggal (Single Source of Truth)
+ * * PERBAIKAN: Menambahkan actions untuk CRUD (Create, Read, Update, Delete)
+ * pada dek dan kartu agar terintegrasi penuh dengan deck.js.
  * * PERBAIKAN: Menyesuaikan cara tema diterapkan agar cocok dengan file style.css.
  */
 
@@ -23,8 +25,9 @@ export const state = {
         score: 0,
         sourceText: '',
     },
+    // Properti ini akan menampung semua dek kartu yang disimpan pengguna
     userData: {
-        savedDecks: {},
+        savedDecks: {}, // Contoh: { "Sejarah Majapahit": [ {card1}, {card2} ] }
     },
     settings: {
         theme: 'system',
@@ -73,15 +76,12 @@ export const actions = {
     // --- Actions untuk Pengaturan ---
     setTheme(newTheme) {
         state.settings.theme = newTheme;
-        
-        // PERBAIKAN KRUSIAL: Mengubah tema pada 'document.body' agar sesuai dengan style.css
         if (newTheme === 'system') {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             document.body.dataset.theme = prefersDark ? 'dark' : 'light';
         } else {
             document.body.dataset.theme = newTheme;
         }
-        
         this.saveSettingsToStorage();
     },
     setApiKey(key) {
@@ -95,6 +95,87 @@ export const actions = {
     },
     saveUserDataToStorage() {
         localStorage.setItem('senkuAppUserData', JSON.stringify(state.userData));
+    },
+
+    // --- ACTIONS BARU UNTUK MANAJEMEN DECK & KARTU (INTEGRASI DENGAN deck.js) ---
+
+    /**
+     * Menyimpan kartu baru ke dek. Jika dek belum ada, dek akan dibuat.
+     * @param {object} card - Objek kartu lengkap dengan metadata SRS.
+     * @param {string} deckName - Nama dek tujuan.
+     */
+    saveCardToDeck(card, deckName) {
+        if (!state.userData.savedDecks[deckName]) {
+            state.userData.savedDecks[deckName] = [];
+        }
+        state.userData.savedDecks[deckName].push(card);
+        this.saveUserDataToStorage();
+    },
+
+    /**
+     * Memperbarui satu kartu spesifik di dalam dek.
+     * @param {string} deckName - Nama dek.
+     * @param {number} cardIndex - Indeks kartu yang akan diperbarui.
+     * @param {object} updatedCard - Objek kartu yang baru.
+     */
+    updateCardInDeck(deckName, cardIndex, updatedCard) {
+        if (state.userData.savedDecks[deckName] && state.userData.savedDecks[deckName][cardIndex]) {
+            state.userData.savedDecks[deckName][cardIndex] = updatedCard;
+            this.saveUserDataToStorage();
+        }
+    },
+    
+    /**
+     * Mengedit konten dari sebuah kartu di dalam dek.
+     * @param {string} deckName - Nama dek.
+     * @param {string} cardId - ID dari kartu yang akan diedit.
+     * @param {object} newContent - Konten baru, cth: { newTerm, newDefinition }.
+     */
+    editCardInDeck(deckName, cardId, newContent) {
+        if (state.userData.savedDecks[deckName]) {
+            const cardIndex = state.userData.savedDecks[deckName].findIndex(c => c.id === cardId);
+            if (cardIndex !== -1) {
+                state.userData.savedDecks[deckName][cardIndex].term = newContent.newTerm;
+                state.userData.savedDecks[deckName][cardIndex].definition = newContent.newDefinition;
+                this.saveUserDataToStorage();
+            }
+        }
+    },
+
+    /**
+     * Menghapus kartu dari dek berdasarkan ID-nya.
+     * @param {string} deckName - Nama dek.
+     * @param {string} cardId - ID kartu yang akan dihapus.
+     */
+    removeCardFromDeck(deckName, cardId) {
+        if (state.userData.savedDecks[deckName]) {
+            state.userData.savedDecks[deckName] = state.userData.savedDecks[deckName].filter(c => c.id !== cardId);
+            this.saveUserDataToStorage();
+        }
+    },
+
+    /**
+     * Mengubah nama dek.
+     * @param {string} oldName - Nama lama dek.
+     * @param {string} newName - Nama baru dek.
+     */
+    renameDeckInState(oldName, newName) {
+        if (state.userData.savedDecks[oldName] && !state.userData.savedDecks[newName]) {
+            state.userData.savedDecks[newName] = state.userData.savedDecks[oldName];
+            delete state.userData.savedDecks[oldName];
+            this.saveUserDataToStorage();
+        }
+    },
+    
+    /**
+     * Menghapus seluruh dek.
+     * @param {string} deckName - Nama dek yang akan dihapus.
+     */
+    removeDeckFromState(deckName) {
+        if (state.userData.savedDecks[deckName]) {
+            delete state.userData.savedDecks[deckName];
+            this.saveUserDataToStorage();
+        }
     },
 };
 
@@ -117,10 +198,3 @@ export function init() {
 
     console.log("State berhasil diinisialisasi.", state);
 }
-```
-
-**Langkah Selanjutnya:**
-
-1.  Ganti isi file `js/state.js` di proyekmu dengan kode di atas.
-2.  Tidak perlu mengubah file `index.html` atau `main.js` lagi, karena keduanya sudah benar.
-3.  Sekarang, coba jalankan kembali aplikasinya. Pilih tema "Gelap" dan tekan "Apply". Halaman web-mu seharusnya akan langsung berubah menjadi gelap, dan notifikasi sukses akan munc
