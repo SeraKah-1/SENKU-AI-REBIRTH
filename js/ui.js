@@ -1,14 +1,14 @@
 /**
  * =====================================================================
- * File: js/ui.js (VERSI UPGRADE - 21 Juli 2025)
+ * File: js/ui.js (VERSI FINAL UPGRADE - 21 Juli 2025)
  * =====================================================================
  *
  * ui.js: Modul Pengelola Tampilan (User Interface)
+ * * PENAMBAHAN: Menambahkan dropdown untuk memilih jumlah kartu (5, 10, 15) di layar awal.
  * * PERBAIKAN: Memperbaiki bug 'undefined' dengan menyesuaikan tampilan ke struktur data baru dari api.js.
  * * UPGRADE: Komponen flashcard kini menampilkan definisi simpel dan analogi/contoh untuk meningkatkan pemahaman.
  * * UPGRADE: Alur layar tes dirombak total untuk mendukung metode self-assessment (penilaian diri)
  * yang sejalan dengan prinsip Active Recall.
- * * PENAMBAHAN: Ikon baru dan penyesuaian gaya untuk mendukung tampilan yang lebih kaya.
  */
 
 // =====================================================================
@@ -42,7 +42,6 @@ const components = {
             </div>
         </div>
     `,
-    // PERUBAHAN DI SINI: Komponen flashcard kini lebih kaya untuk menampilkan data baru
     flashcard: (card) => `
         <div class="p-4 border border-border-color rounded-lg bg-tertiary space-y-2">
             <p class="font-bold text-lg">${card.term}</p>
@@ -72,9 +71,20 @@ const screenTemplates = {
                     <button id="mode-file-btn" class="mode-btn">Dari File</button>
                 </div>
                 <form id="start-form">
-                    <div id="topic-input-container"><input type="text" id="topic-input" placeholder="Contoh: Sejarah Kerajaan Majapahit" required></div>
+                    <div id="topic-input-container"><input type="text" id="topic-input" placeholder="Contoh: Anatomi Manusia" required></div>
                     <div id="file-input-container" class="hidden"><div id="file-upload-area" class="w-full p-8 rounded-xl text-center cursor-pointer border-2 border-dashed border-border-color"><i data-lucide="upload-cloud" class="w-12 h-12 mx-auto text-secondary mb-2"></i><p class="font-semibold">Seret & lepas file</p><p class="text-sm text-secondary">atau klik (PDF, DOCX, Teks)</p><input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.txt,.md"><p id="file-name-display" class="mt-4 font-semibold text-accent-primary"></p></div></div>
+                    
                     <div class="my-6"><label class="font-semibold text-secondary mb-3 block">Pilih Tingkat Kesulitan:</label><div id="difficulty-selector" class="grid grid-cols-3 gap-3"><button type="button" data-difficulty="Mudah" class="difficulty-btn selected">Mudah</button><button type="button" data-difficulty="Menengah" class="difficulty-btn">Menengah</button><button type="button" data-difficulty="Sulit" class="difficulty-btn">Sulit</button></div></div>
+
+                    <div class="my-6">
+                        <label for="card-count-selector" class="font-semibold text-secondary mb-3 block">Jumlah Kartu:</label>
+                        <select id="card-count-selector" class="w-full p-2 text-base border border-border-color rounded-md focus:ring-2 focus:ring-accent-primary bg-secondary">
+                            <option value="5">5 Kartu (Sesi Cepat)</option>
+                            <option value="10" selected>10 Kartu (Sesi Standar)</option>
+                            <option value="15">15 Kartu (Sesi Mendalam)</option>
+                        </select>
+                    </div>
+
                     <button type="submit" class="btn btn-primary w-full mt-4 py-4 text-lg">Lanjutkan</button>
                 </form>
             </div>
@@ -89,7 +99,7 @@ const screenTemplates = {
                 <p class="text-secondary">${choice.description}</p>
             </button>
         `).join('');
-        return `<div id="choice-screen" class="screen max-w-2xl w-full"><div class="card text-center"><i data-lucide="git-branch-plus" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i><h2 class="text-3xl font-bold">Pilih Arah Topik</h2><p class="text-secondary mb-6">AI telah menyiapkan beberapa fokus materi. Pilih salah satu.</p><div id="choices-container" class="space-y-4">${choiceButtons}</div><button id="confirm-choice-btn" class="btn btn-primary w-full mt-6 py-4" disabled>Buatkan Materi</button></div></div>`;
+        return `<div id="choice-screen" class="screen max-w-2xl w-full"><div class="card text-center"><i data-lucide="git-branch-plus" class="w-16 h-16 mx-auto text-accent-primary mb-4"></i><h2 class="text-3xl font-bold">Pilih Fokus Materi</h2><p class="text-secondary mb-6">AI telah memecah topik utamamu. Pilih salah satu untuk dipelajari.</p><div id="choices-container" class="space-y-4">${choiceButtons}</div><button id="confirm-choice-btn" class="btn btn-primary w-full mt-6 py-4" disabled>Buatkan Materi</button></div></div>`;
     },
 
     memorize: (data) => `
@@ -102,7 +112,7 @@ const screenTemplates = {
                     <h3 class="font-bold text-xl mb-2">Ringkasan Materi</h3>
                     <p class="text-secondary">${data.summary}</p>
                 </div>
-                <h3 class="font-bold text-xl mb-4 text-center">Kartu Belajar</h3>
+                <h3 class="font-bold text-xl mb-4 text-center">Kartu Belajar (${data.flashcards.length})</h3>
                 <div class="space-y-4 mb-8">
                     ${data.flashcards.map(card => components.flashcard(card)).join('')}
                 </div>
@@ -110,7 +120,6 @@ const screenTemplates = {
             </div>
         </div>`,
     
-    // PERUBAHAN BESAR DI SINI: Template layar tes diubah total menjadi self-assessment
     test: ({ card, index, total }) => `
         <div id="test-screen" class="screen max-w-2xl w-full">
             <div class="card">
@@ -218,12 +227,6 @@ export function updateFileProcessingView(result) {
     } else if (result.status === 'error') {
         fileNameDisplay.textContent = 'Gagal memproses file.';
     }
-}
-
-// FUNGSI INI TIDAK LAGI DIGUNAKAN KARENA PERUBAHAN ALUR TES
-export function showTestResult(isCorrect, correctAnswer) {
-    // Deprecated. Logic is now handled inside setupTestScreenListeners and the new test template.
-    // This function can be safely removed if no other part of the app calls it.
 }
 
 export function showNotification(message, type = 'info', duration = 3000) {
