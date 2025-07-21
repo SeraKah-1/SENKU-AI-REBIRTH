@@ -1,49 +1,38 @@
 /**
  * =====================================================================
- * File: js/fileProcessor.worker.js (VERSI FINAL - STABIL)
+ * File: js/fileProcessor.worker.js (VERSI MODERN - ESM)
  * =====================================================================
  *
- * fileProcessor.worker.js: Pekerja Latar Belakang (Analis Konten)
- * * FIX: Mengganti URL Mammoth.js ke versi non-browser untuk mengatasi
- * error "document is not defined" di dalam Web Worker.
- * * FIX: Menonaktifkan sementara Tesseract.js (OCR).
+ * Menggunakan metode import modul JavaScript modern, bukan importScripts.
+ * Ini membuat kode lebih bersih dan sesuai dengan praktik pengembangan web saat ini.
  */
 
 // =====================================================================
-// IMPOR LIBRARY PIHAK KETIGA (DIPERBAIKI)
+// IMPOR LIBRARY MODERN (ESM) DARI CDN
 // =====================================================================
-// PERBAIKAN: Gunakan 'mammoth.min.js' BUKAN 'mammoth.browser.min.js'
-self.importScripts('https://unpkg.com/mammoth@1.5.1/mammoth.min.js');
-self.importScripts('https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js');
+import mammoth from 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/+esm';
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/+esm';
+import { createWorker } from 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/+esm';
 
-// Tesseract.js (OCR) masih dinonaktifkan
-// self.importScripts('https://unpkg.com/tesseract.js@2.1.0/dist/tesseract.min.js'); 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
-
-
-// =====================================================================
-// STATE & KONTROL WORKER
-// =====================================================================
-let isCancelled = false;
+// Konfigurasi path untuk sub-worker yang dibutuhkan oleh PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
 
 
 // =====================================================================
 // MESSAGE HANDLER UTAMA
 // =====================================================================
 self.onmessage = async (event) => {
-    if (event.data && event.data.type === 'cancel') {
-        isCancelled = true;
+    const file = event.data;
+
+    // Abaikan jika data tidak valid atau ada perintah pembatalan
+    if (!file || event.data.type === 'cancel') {
         return;
     }
 
-    const file = event.data;
-    isCancelled = false;
-
     try {
         let content = {
-            title: file.name.replace(/\.[^/.]+$/, ""),
+            title: file.name.replace(/\.[^/.]+$/, ""), // Ambil nama file tanpa ekstensi
             text: '',
-            structured: [],
             metadata: {
                 fileName: file.name,
                 fileSize: file.size,
@@ -52,36 +41,32 @@ self.onmessage = async (event) => {
                 wordCount: 0,
             }
         };
-
         let rawText = '';
 
-        // Pilih metode ekstraksi berdasarkan tipe file
+        // Pilih metode ekstraksi teks berdasarkan tipe file
         if (file.type === 'application/pdf') {
             rawText = await extractTextFromPdf(file);
         } else if (file.name.endsWith('.docx')) {
             rawText = await extractTextFromDocx(file);
         } else if (file.type.startsWith('image/')) {
-            throw new Error('Pemrosesan gambar (OCR) saat ini sedang dalam perbaikan.');
+            rawText = await extractTextFromImage(file);
         } else if (file.type === 'text/plain' || file.name.endsWith('.md')) {
             rawText = await extractTextFromTextFile(file);
         } else {
             throw new Error(`Format file "${file.type}" tidak didukung.`);
         }
 
-        if (isCancelled) {
-            self.postMessage({ status: 'cancelled' });
-            return;
-        }
-
+        // Bersihkan dan proses teks yang sudah diekstrak
         content.text = cleanText(rawText);
-        content.structured = parseTextStructure(content.text);
         content.metadata.charCount = content.text.length;
         content.metadata.wordCount = content.text.trim().split(/\s+/).length;
         const previewText = content.text.substring(0, 250) + (content.text.length > 250 ? '...' : '');
 
+        // Kirim hasil akhir kembali ke thread utama
         self.postMessage({ status: 'ready', content, preview: previewText });
 
     } catch (error) {
+        console.error("Terjadi error di dalam worker:", error);
         self.postMessage({ status: 'error', message: error.message });
     }
 };
@@ -95,15 +80,16 @@ async function extractTextFromPdf(file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
+
     for (let i = 1; i <= pdf.numPages; i++) {
-        if (isCancelled) return null;
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
         fullText += content.items.map(item => item.str).join(' ') + '\n';
+        // Kirim progress update
         self.postMessage({
             status: 'progress',
             progress: Math.round((i / pdf.numPages) * 100),
-            details: `Memproses halaman ${i} dari ${pdf.numPages}`
+            details: `Memproses halaman PDF ${i} dari ${pdf.numPages}`
         });
     }
     return fullText;
@@ -115,39 +101,39 @@ async function extractTextFromDocx(file) {
     return result.value;
 }
 
+async function extractTextFromImage(file) {
+    self.postMessage({ status: 'progress', progress: 0, details: `Mempersiapkan OCR untuk gambar...` });
+    
+    // Buat worker Tesseract untuk bahasa Indonesia
+    const worker = await createWorker('ind', 1, {
+        logger: m => {
+            // Kirim progress update saat Tesseract sedang mengenali teks
+            if (m.status === 'recognizing text') {
+                const progress = Math.round(m.progress * 100);
+                self.postMessage({ status: 'progress', progress: progress, details: `Mengenali teks (${progress}%)` });
+            }
+        }
+    });
+
+    const { data: { text } } = await worker.recognize(file);
+    await worker.terminate(); // Matikan worker setelah selesai untuk hemat memori
+    return text;
+}
+
 async function extractTextFromTextFile(file) {
     return file.text();
 }
 
+
 // =====================================================================
-// FUNGSI-FUNGSI PEMROSESAN TEKS
+// FUNGSI UTILITAS PEMBERSIH TEKS
 // =====================================================================
 
 function cleanText(text) {
     if (!text) return '';
-    let cleaned = text;
-    cleaned = cleaned.replace(/Page \d+\s*of\s*\d+/gi, '');
-    cleaned = cleaned.replace(/(\r\n|\n|\r){2,}/gm, '\n\n');
-    cleaned = cleaned.replace(/(\r\n|\n|\r)(?!\n)/gm, ' ');
-    cleaned = cleaned.replace(/\s\s+/g, ' ');
+    // Ganti baris baru yang berlebihan (lebih dari 2) menjadi satu baris kosong
+    let cleaned = text.replace(/(\r\n|\n|\r){2,}/gm, '\n\n'); 
+    // Ganti spasi ganda dengan spasi tunggal
+    cleaned = cleaned.replace(/\s\s+/g, ' '); 
     return cleaned.trim();
-}
-
-function parseTextStructure(cleanedText) {
-    if (!cleanedText) return [];
-    const blocks = cleanedText.split('\n\n');
-    const structuredContent = [];
-    blocks.forEach(block => {
-        const lines = block.split('\n').filter(line => line.trim() !== '');
-        lines.forEach(line => {
-            if (line.length < 80 && line.length > 2 && !line.endsWith('.')) {
-                structuredContent.push({ type: 'heading', content: line.trim() });
-            } else if (line.trim().match(/^(\*|-|\d+\.)\s/)) {
-                structuredContent.push({ type: 'list_item', content: line.trim() });
-            } else {
-                structuredContent.push({ type: 'paragraph', content: line.trim() });
-            }
-        });
-    });
-    return structuredContent;
 }
