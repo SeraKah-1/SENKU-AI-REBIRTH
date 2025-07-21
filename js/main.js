@@ -53,7 +53,6 @@ const learningFlow = {
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'CHOOSING':
-                 // Pastikan data ada sebelum render
                  if (state.quiz.generatedData && state.quiz.generatedData.choices) {
                     ui.showScreen('choice', state.quiz.generatedData.choices);
                     setupChoiceScreenListeners();
@@ -147,7 +146,6 @@ function setupChoiceScreenListeners() {
     document.querySelectorAll('.choice-btn').forEach(btn => {
         addScreenListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
-            // PERBAIKAN KRITIS: Selalu teruskan 'cardCount' yang sudah ada di state
             actions.setQuizDetails(selectedChoice, state.quiz.difficulty, state.quiz.cardCount);
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
@@ -262,7 +260,7 @@ function handleStudyDeck(deckName) {
         actions.setCurrentDeckName(deckName);
 
         const deckData = {
-            summary: `Mempelajari kembali dek "${deckName}". Kartu diurutkan berdasarkan yang paling perlu diulang.`,
+            summary: `Mempelajari kembali dek "${deckName}".`,
             flashcards: cards.map(c => ({
                 id: c.id,
                 term: c.term || 'Istilah tidak tersedia',
@@ -340,9 +338,6 @@ function handleRouteChange() {
         case '':
         case 'home':
         default:
-            // PERBAIKAN KRITIS: Hapus kondisi 'if' yang salah.
-            // Selalu set state ke IDLE dan jalankan logikanya untuk memastikan
-            // layar awal selalu ditampilkan dengan benar.
             learningFlow.currentState = 'IDLE';
             learningFlow.runStateLogic();
             break;
@@ -354,7 +349,7 @@ function init() {
     ui.initUI();
     setupGlobalListeners();
     window.addEventListener('hashchange', handleRouteChange);
-    handleRouteChange(); // Panggil sekali saat load untuk menentukan halaman awal
+    handleRouteChange();
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
 }
 
