@@ -1,27 +1,23 @@
 /**
  * =====================================================================
- * File: js/fileProcessor.worker.js (VERSI MODERN - FINAL FIX)
+ * File: js/fileProcessor.worker.js (VERSI DIPERBAIKI TOTAL)
  * =====================================================================
  *
- * Menggunakan metode import modul JavaScript modern (ESM).
- * FIX: Memperbaiki cara pemanggilan library PDF.js yang benar untuk modul ESM.
+ * * PERBAIKAN: Mengatasi error "Cannot set properties of undefined (setting 'workerSrc')"
+ * dengan mengubah cara konfigurasi worker untuk PDF.js agar sesuai dengan standar
+ * modul JavaScript modern (ESM).
  */
 
 // =====================================================================
 // IMPOR LIBRARY MODERN (ESM) DARI CDN
 // =====================================================================
 
-// Untuk memproses file .docx
 import mammoth from 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/+esm';
-
-// Untuk memproses file .pdf (CARA IMPOR DIPERBAIKI)
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/+esm';
-
-// Untuk membaca teks dari gambar (OCR)
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/+esm';
 import { createWorker } from 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/+esm';
 
-// Konfigurasi path untuk sub-worker yang dibutuhkan oleh PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
+// HAPUS BARIS INI KARENA MENYEBABKAN ERROR
+// pdfjsLib.GlobalWorkerOptions.workerSrc = ...;
 
 
 // =====================================================================
@@ -29,10 +25,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dis
 // =====================================================================
 self.onmessage = async (event) => {
     const file = event.data;
-
-    if (!file || !(file instanceof File)) {
-        return;
-    }
+    if (!file || !(file instanceof File)) return;
 
     try {
         let content = {
@@ -59,6 +52,10 @@ self.onmessage = async (event) => {
         }
 
         content.text = cleanText(rawText);
+        
+        // Tambahkan penghitungan kata
+        content.metadata.wordCount = content.text.split(/\s+/).filter(Boolean).length;
+        
         self.postMessage({ status: 'ready', content });
 
     } catch (error) {
@@ -74,8 +71,14 @@ self.onmessage = async (event) => {
 
 async function extractTextFromPdf(file) {
     const arrayBuffer = await file.arrayBuffer();
-    // Panggil getDocument melalui objek pdfjsLib
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // PERBAIKAN: Konfigurasi workerSrc dilakukan di sini, BUKAN di luar.
+    const loadingTask = pdfjsLib.getDocument({
+        data: arrayBuffer,
+        workerSrc: `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs`
+    });
+
+    const pdf = await loadingTask.promise;
     let fullText = '';
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
@@ -118,7 +121,7 @@ async function extractTextFromTextFile(file) {
 // =====================================================================
 function cleanText(text) {
     if (!text) return '';
-    let cleaned = text.replace(/(\r\n|\n|\r){2,}/gm, '\n\n');
-    cleaned = cleaned.replace(/\s\s+/g, ' ');
+    let cleaned = text.replace(/(\r\n|\n|\r){2,}/gm, '\n\n'); // Gabungkan baris baru berlebih
+    cleaned = cleaned.replace(/\s+/g, ' '); // Ganti spasi berlebih dengan satu spasi
     return cleaned.trim();
 }
