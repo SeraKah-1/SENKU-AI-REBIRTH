@@ -148,8 +148,11 @@ function setupChoiceScreenListeners() {
     document.querySelectorAll('.choice-btn').forEach(btn => {
         addScreenListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
-            // Simpan topik baru yang dipilih ke state
+            
+            // PERBAIKAN DI SINI:
+            // Jangan lupakan cardCount yang sudah tersimpan di state!
             actions.setQuizDetails(selectedChoice, state.quiz.difficulty, state.quiz.cardCount);
+            
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             if (confirmBtn) confirmBtn.disabled = false;
@@ -278,24 +281,28 @@ function handleStudyDeck(deckName) {
         actions.setCurrentDeckName(deckName);
 
         const deckData = {
-            summary: `Mempelajari kembali dek "${deckName}"`,
-            // PERBAIKAN: Memastikan pemetaan data yang kuat untuk mencegah 'undefined'
-            flashcards: cards.map(c => ({
-                id: c.id,
-                term: c.term || 'Istilah tidak tersedia',
-                simple_definition: c.simple_definition || c.definition || 'Definisi tidak tersedia.',
-                analogy_or_example: c.analogy_or_example || '',
-                active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang ${c.term}?`,
-                question_clue: c.question_clue || 'Tidak ada petunjuk'
-            }))
+            summary: `Mempelajari kembali dek "${deckName}". Kartu diurutkan berdasarkan yang paling perlu diulang.`,
+            
+            // PERBAIKAN UTAMA DI SINI:
+            // Pemetaan data yang lebih kuat untuk memastikan tidak ada nilai undefined.
+            flashcards: cards.map(c => {
+                const safeCard = {
+                    id: c.id,
+                    term: c.term || 'Istilah tidak tersedia',
+                    simple_definition: c.simple_definition || c.definition || 'Definisi tidak tersedia.',
+                    analogy_or_example: c.analogy_or_example || '',
+                    active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang "${c.term || 'ini'}"?`,
+                    question_clue: c.question_clue || ''
+                };
+                return safeCard;
+            })
         };
 
         actions.setGeneratedData(deckData);
-        // PERBAIKAN: Langsung ke state MEMORIZING untuk alur yang lebih bersih
         learningFlow.currentState = 'MEMORIZING';
         learningFlow.runStateLogic();
     } else {
-        ui.showNotification("Selamat! Tidak ada kartu yang perlu ditinjau hari ini.", "success");
+        ui.showNotification("Selamat! Tidak ada kartu yang perlu ditinjau di dek ini hari ini.", "success");
     }
 }
 
@@ -358,7 +365,6 @@ function handleRouteChange() {
         case '':
         case 'home':
         default:
-            // Jangan reset state jika hanya berpindah hash, biarkan state IDLE yang menangani reset.
             if (learningFlow.currentState !== 'IDLE') {
                  learningFlow.currentState = 'IDLE';
                  learningFlow.runStateLogic();
