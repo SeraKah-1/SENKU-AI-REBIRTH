@@ -4,12 +4,8 @@
  * =====================================================================
  *
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * PENAMBAHAN: Mengambil nilai jumlah kartu dari UI dan mengirimkannya ke api.getDeck
- * saat membuat materi belajar.
- * * UPGRADE: Logika `setupTestScreenListeners` dirombak total untuk menangani alur tes
- * penilaian diri (self-assessment), sesuai dengan perubahan pada ui.js.
- * * UPGRADE: `handleSaveDeck` dan `handleStudyDeck` disesuaikan untuk menyimpan dan
- * memuat struktur data kartu yang lebih kaya (dengan analogi, dll.).
+ * * PERBAIKAN: Memperbaiki logika 'handleStudyDeck' dan 'handleAnswer'
+ * untuk memastikan fitur Spaced Repetition (SRS) berfungsi dengan benar.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -60,11 +56,9 @@ const learningFlow = {
                  await handleAsync(async () => {
                     const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
                     
-                    // MENGAMBIL NILAI JUMLAH KARTU DARI UI
                     const cardCountElement = document.getElementById('card-count-selector');
                     const cardCount = cardCountElement ? parseInt(cardCountElement.value) : 10;
 
-                    // MENGIRIMKAN cardCount KE API
                     const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode, cardCount);
                     
                     actions.setGeneratedData(generatedData);
@@ -180,9 +174,18 @@ function setupTestScreenListeners() {
     });
 
     const handleAnswer = (isCorrect) => {
+        // PERBAIKAN: Memanggil logika Spaced Repetition
+        const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
+        const deckName = state.quiz.currentDeckName;
+
+        if (deckName && currentCard.id) {
+            deck.updateCardMastery(deckName, currentCard.id, isCorrect);
+        }
+        
         if (isCorrect) {
             actions.incrementScore();
         }
+
         actions.goToNextCard();
         if (state.quiz.currentCardIndex >= state.quiz.generatedData.flashcards.length) {
             learningFlow.transition('COMPLETE');
@@ -260,9 +263,14 @@ function handleSaveDeck() {
 function handleStudyDeck(deckName) {
     const cards = deck.startDeckStudySession(deckName);
     if (cards && cards.length > 0) {
+        actions.resetQuiz();
+        actions.setCurrentDeckName(deckName);
+
         const deckData = {
             summary: `Mempelajari kembali dek "${deckName}"`,
+            // PERBAIKAN: Memastikan 'id' kartu ikut terbawa ke sesi belajar
             flashcards: cards.map(c => ({
+                id: c.id, 
                 term: c.term,
                 simple_definition: c.simple_definition || c.definition,
                 analogy_or_example: c.analogy_or_example || '',
@@ -270,12 +278,12 @@ function handleStudyDeck(deckName) {
                 question_clue: c.question_clue || 'Definisi'
             }))
         };
-        actions.resetQuiz();
+        
         actions.setGeneratedData(deckData);
         learningFlow.currentState = 'LOADING_DECK';
         learningFlow.transition('SUCCESS');
     } else {
-        ui.showNotification("Deck ini kosong atau tidak ditemukan.", "error");
+        ui.showNotification("Selamat! Tidak ada kartu yang perlu ditinjau hari ini.", "success");
     }
 }
 
