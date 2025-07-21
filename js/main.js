@@ -1,11 +1,12 @@
 /**
  * =====================================================================
- * File: main.js (VERSI FINAL & DIPERBAIKI)
+ * File: main.js (VERSI FINAL & DIPERBAIKI TOTAL)
  * =====================================================================
  *
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * PERBAIKAN FINAL: Memastikan `cardCount` selalu diteruskan saat memilih sub-topik.
- * * PERBAIKAN FINAL: Membuat fungsi `handleStudyDeck` lebih kuat untuk menangani data
+ * * PERBAIKAN: Memperbaiki logika `handleRouteChange` untuk mengatasi bug layar kosong.
+ * * PERBAIKAN: Memastikan `cardCount` selalu diteruskan saat memilih sub-topik.
+ * * PERBAIKAN: Membuat fungsi `handleStudyDeck` lebih kuat untuk menangani data
  * dek lama yang mungkin rusak untuk mencegah 'undefined' secara total.
  */
 import { state, actions, init as initState } from './state.js';
@@ -52,8 +53,14 @@ const learningFlow = {
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'CHOOSING':
-                 ui.showScreen('choice', state.quiz.generatedData.choices);
-                 setupChoiceScreenListeners();
+                 // Pastikan data ada sebelum render
+                 if (state.quiz.generatedData && state.quiz.generatedData.choices) {
+                    ui.showScreen('choice', state.quiz.generatedData.choices);
+                    setupChoiceScreenListeners();
+                 } else {
+                    console.error("Data pilihan tidak ditemukan, kembali ke IDLE");
+                    await this.transition('FAIL');
+                 }
                  break;
             case 'LOADING_DECK':
                 ui.showScreen('loading', 'Membuat materi belajar...');
@@ -141,7 +148,6 @@ function setupChoiceScreenListeners() {
         addScreenListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
             // PERBAIKAN KRITIS: Selalu teruskan 'cardCount' yang sudah ada di state
-            // agar tidak hilang saat memilih sub-topik.
             actions.setQuizDetails(selectedChoice, state.quiz.difficulty, state.quiz.cardCount);
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
@@ -257,8 +263,6 @@ function handleStudyDeck(deckName) {
 
         const deckData = {
             summary: `Mempelajari kembali dek "${deckName}". Kartu diurutkan berdasarkan yang paling perlu diulang.`,
-            // PERBAIKAN KRITIS: Pemetaan data yang sangat defensif untuk menangani
-            // dek lama yang mungkin rusak dan mencegah 'undefined'.
             flashcards: cards.map(c => ({
                 id: c.id,
                 term: c.term || 'Istilah tidak tersedia',
@@ -336,10 +340,11 @@ function handleRouteChange() {
         case '':
         case 'home':
         default:
-            if (learningFlow.currentState !== 'IDLE') {
-                 learningFlow.currentState = 'IDLE';
-                 learningFlow.runStateLogic();
-            }
+            // PERBAIKAN KRITIS: Hapus kondisi 'if' yang salah.
+            // Selalu set state ke IDLE dan jalankan logikanya untuk memastikan
+            // layar awal selalu ditampilkan dengan benar.
+            learningFlow.currentState = 'IDLE';
+            learningFlow.runStateLogic();
             break;
     }
 }
@@ -349,7 +354,7 @@ function init() {
     ui.initUI();
     setupGlobalListeners();
     window.addEventListener('hashchange', handleRouteChange);
-    handleRouteChange();
+    handleRouteChange(); // Panggil sekali saat load untuk menentukan halaman awal
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
 }
 
