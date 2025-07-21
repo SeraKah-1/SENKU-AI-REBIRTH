@@ -1,116 +1,121 @@
 /**
  * =====================================================================
- * File: js/fileHandler.js (VERSI DIPERBARUI)
+ * File: js/fileHandler.js (VERSI DIPERBARUI & DIBUAT LEBIH ROBUST)
  * =====================================================================
  *
- * fileHandler.js: Modul Pengelola Input File (Manajer)
- * * PERUBAHAN: Mengubah cara Worker dipanggil agar mendukung modul JavaScript modern (ESM).
- * * Bertanggung jawab untuk semua interaksi UI yang berhubungan dengan upload file.
- * * Menggunakan Web Worker untuk memproses file di background thread agar UI tetap responsif.
- * * Menerima file dari pengguna dan mendelegasikannya ke fileProcessor.worker.js.
+ * Deskripsi: Modul ini bertanggung jawab untuk menangani interaksi pengguna
+ * dengan elemen upload file di UI. Ia menerima file, melakukan validasi
+ * awal, lalu mendelegasikannya ke 'fileProcessor.worker.js' untuk
+ * pemrosesan di latar belakang.
+ *
+ * PERUBAHAN PENTING:
+ * 1.  Worker Instantiation: Worker sekarang dibuat dengan opsi `{ type: 'module' }`.
+ * Ini SANGAT PENTING agar worker dapat menggunakan sintaks `import` untuk
+ * memuat library dari CDN.
+ * 2.  Robust Callbacks: Logika callback disederhanakan untuk memastikan semua
+ * status (processing, progress, ready, error) diteruskan kembali ke UI.
+ * 3.  Complete Error Handling: Menambahkan listener `worker.onerror` untuk
+ * menangkap masalah yang lebih dalam, seperti jika file worker itu sendiri
+ * tidak dapat ditemukan atau mengalami crash.
  */
 
 /**
  * Menyiapkan event listener untuk area upload file (drag-drop dan klik).
- * Fungsi ini harus dipanggil sekali saat layar 'start' ditampilkan.
- * @param {Function} onFileUpdate - Callback yang dipanggil setiap kali status pemrosesan file berubah.
- * Callback ini akan menerima objek seperti { status: 'processing'|'ready'|'error', ...data }
+ * @param {Function} onFileUpdate - Callback yang dipanggil setiap kali ada update
+ * status dari pemrosesan file.
  */
 export function setupFileHandling(onFileUpdate) {
     const uploadArea = document.getElementById('file-upload-area');
     const fileInput = document.getElementById('file-input');
-    
-    // Jika elemen tidak ditemukan, hentikan eksekusi untuk mencegah error.
+
     if (!uploadArea || !fileInput) {
-        console.warn("Elemen untuk upload file tidak ditemukan di DOM.");
+        console.warn("Peringatan: Elemen UI untuk upload file tidak ditemukan. Fitur upload file tidak akan aktif.");
         return;
     }
 
-    // Handler untuk event drag-and-drop
-    const dragDropHandler = (e) => {
+    const handleDragEvent = (e) => {
         e.preventDefault();
-        e.stopPropagation(); // Mencegah event menyebar ke elemen lain
-
+        e.stopPropagation();
         if (e.type === 'dragover') {
-            uploadArea.classList.add('drag-over'); // Tambahkan efek visual saat file di atas area
+            uploadArea.classList.add('drag-over'); // Efek visual
         } else {
-            uploadArea.classList.remove('drag-over'); // Hapus efek visual
-        }
-
-        if (e.type === 'drop') {
-            if (e.dataTransfer.files.length > 0) {
-                // Proses file pertama yang di-drop oleh pengguna
-                processFile(e.dataTransfer.files[0], onFileUpdate);
-            }
+            uploadArea.classList.remove('drag-over');
         }
     };
 
-    // Menambahkan event listener ke area upload
+    const handleFileDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('drag-over');
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            processFile(files[0], onFileUpdate);
+        }
+    };
+
     uploadArea.addEventListener('click', () => fileInput.click());
-    uploadArea.addEventListener('dragover', dragDropHandler);
-    uploadArea.addEventListener('dragleave', dragDropHandler);
-    uploadArea.addEventListener('drop', dragDropHandler);
-    
-    // Menambahkan event listener ke input file tersembunyi
+    uploadArea.addEventListener('dragover', handleDragEvent);
+    uploadArea.addEventListener('dragleave', handleDragEvent);
+    uploadArea.addEventListener('drop', handleFileDrop);
+
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            processFile(e.target.files[0], onFileUpdate);
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            processFile(files[0], onFileUpdate);
         }
     });
 }
 
 /**
- * Memproses file yang dipilih oleh pengguna dengan mendelegasikannya ke Web Worker.
- * @param {File} file - Objek file yang akan diproses.
- * @param {Function} callback - Callback untuk melaporkan status kembali ke main.js.
+ * Memvalidasi file dan mengirimkannya ke Web Worker untuk diproses.
+ * @param {File} file - Objek file dari input pengguna.
+ * @param {Function} onFileUpdate - Callback untuk melaporkan status kembali ke main.js.
  */
-function processFile(file, callback) {
-    // Lakukan validasi awal di sini (di main thread) untuk memberikan feedback cepat.
-    if (file.size > 20 * 1024 * 1024) { // Batas ukuran file 20MB
-        callback({ status: 'error', message: 'Ukuran file melebihi batas (20MB).' });
+function processFile(file, onFileUpdate) {
+    // Validasi awal di main thread untuk feedback instan
+    const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+    if (file.size > MAX_FILE_SIZE) {
+        onFileUpdate({ status: 'error', message: 'Ukuran file terlalu besar (maks 25MB).' });
         return;
     }
 
-    // Cek apakah browser mendukung Web Worker
-    if (window.Worker) {
-        // Laporkan status 'processing' ke UI agar pengguna tahu sesuatu sedang terjadi.
-        callback({ status: 'processing', name: file.name });
-        
-        // Buat instance worker baru dari file eksternal.
-        // Tambahkan { type: 'module' } agar worker bisa menggunakan 'import'.
+    // Cek dukungan Web Worker di browser
+    if (!window.Worker) {
+        onFileUpdate({ status: 'error', message: 'Browser ini tidak mendukung pemrosesan file di latar belakang.' });
+        console.error("Browser tidak mendukung Web Workers.");
+        return;
+    }
+
+    try {
+        // Laporkan status awal ke UI
+        onFileUpdate({ status: 'processing', name: file.name });
+
+        // PENTING: Buat instance worker dengan '{ type: 'module' }'
         const worker = new Worker('./js/fileProcessor.worker.js', { type: 'module' });
 
-        // Kirim objek 'File' ke worker untuk diproses di latar belakang.
+        // Kirim file ke worker untuk diproses
         worker.postMessage(file);
 
-        // Siapkan listener untuk menerima pesan balasan dari worker.
+        // Listener untuk menerima pesan dari worker
         worker.onmessage = (event) => {
-            const { status, content, preview, message, progress, details } = event.data;
-            
-            // Teruskan hasil dari worker ke callback (yang akan ditangani di main.js)
-            if (status === 'ready') {
-                callback({ status: 'ready', content, preview });
-                // Hentikan worker setelah selesai untuk melepaskan memori.
+            const result = event.data;
+            // Teruskan pesan apa pun dari worker ke UI
+            onFileUpdate(result);
+
+            // Hentikan worker jika tugasnya sudah selesai (berhasil atau gagal)
+            if (result.status === 'ready' || result.status === 'error') {
                 worker.terminate();
-            } else if (status === 'progress') {
-                // Kamu bisa menambahkan logika untuk menampilkan progress bar di sini jika mau
-                console.log(`Progress: ${progress}% - ${details}`);
-            } else if (status === 'error') {
-                 callback({ status: 'error', message });
-                 worker.terminate();
             }
         };
 
-        // Siapkan listener untuk menangani error yang mungkin terjadi di dalam worker.
+        // Listener untuk menangani error jika worker crash
         worker.onerror = (error) => {
-            callback({ status: 'error', message: `Terjadi error pada worker: ${error.message}` });
+            console.error("Terjadi error fatal pada worker:", error);
+            onFileUpdate({ status: 'error', message: `Gagal memuat pemroses file: ${error.message}` });
             worker.terminate();
         };
 
-    } else {
-        // Fallback jika browser tidak mendukung Web Workers.
-        // Ini memastikan aplikasi tidak crash di browser lama.
-        console.warn("Browser tidak mendukung Web Workers, pemrosesan mungkin membuat UI lag.");
-        callback({ status: 'error', message: 'Browser-mu tidak mendukung pemrosesan file di latar belakang.' });
+    } catch (e) {
+         onFileUpdate({ status: 'error', message: `Gagal memulai pemroses file: ${e.message}` });
     }
 }
