@@ -1,209 +1,361 @@
 /**
- * =======================================================================================
- * File: js/api.js (VERSI FINAL & DIPERBAIKI)
- * =======================================================================================
+ * =====================================================================
+ * File: main.js (VERSI FINAL & DIPERBAIKI TOTAL)
+ * =====================================================================
  *
- * api.js: Lapisan Interaksi AI yang Ditingkatkan Secara Pedagogis
- *
- * * PERBAIKAN FINAL: Menghapus batasan `minItems` dan `maxItems` dari schema `getDeck`
- * untuk mengatasi error "too many states for serving" dari Google AI API. Tindakan ini
- * TIDAK menghilangkan fitur, hanya memperbaiki cara kita berkomunikasi dengan AI.
- *
- * =======================================================================================
+ * main.js: Otak & Sutradara Aplikasi (Controller)
+ * * PERBAIKAN: Memperbaiki logika `handleRouteChange` untuk mengatasi bug layar kosong.
+ * * PERBAIKAN: Memastikan `cardCount` selalu diteruskan saat memilih sub-topik.
+ * * PERBAIKAN: Membuat fungsi `handleStudyDeck` lebih kuat untuk menangani data
+ * dek lama yang mungkin rusak untuk mencegah 'undefined' secara total.
  */
+import { state, actions, init as initState } from './state.js';
+import * as ui from './ui.js';
+import * as api from './api.js';
+import * as deck from './deck.js';
+import { setupFileHandling } from './fileHandler.js';
 
-import { state } from './state.js';
-
-// =====================================================================
-// KONFIGURASI & KONSTANTA
-// =====================================================================
-
-const GOOGLE_API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
-// =====================================================================
-// FUNGSI INTI PEMANGGILAN API (INTERNAL) - TANGGUH & INFORMATIF
-// =====================================================================
-
-/**
- * Fungsi internal yang tangguh untuk melakukan panggilan fetch ke Google AI.
- * @param {object} payload - Objek payload lengkap yang akan dikirim.
- * @param {string} functionName - Nama fungsi pemanggil untuk logging error.
- * @returns {Promise<object>} Objek JSON yang sudah diparsing dari respons AI.
- * @throws {Error} Melemparkan error yang sudah diformat untuk ditampilkan di UI.
- */
-async function safeFetch(payload, functionName = 'unknown') {
-    if (!state.settings.apiKey || state.settings.apiKey.trim() === '') {
-        throw new Error("API Key belum dimasukkan. Silakan isi di pojok kiri bawah.");
+const learningFlow = {
+    currentState: 'IDLE',
+    transitions: {
+        IDLE: { SUBMIT_TOPIC: 'LOADING_CHOICES', SUBMIT_FILE: 'LOADING_DECK' },
+        LOADING_CHOICES: { SUCCESS: 'CHOOSING', FAIL: 'IDLE' },
+        CHOOSING: { CONFIRM: 'LOADING_DECK' },
+        LOADING_DECK: { SUCCESS: 'MEMORIZING', FAIL: 'IDLE' },
+        MEMORIZING: { START_TEST: 'TESTING' },
+        TESTING: { COMPLETE: 'RESULTS' },
+        RESULTS: { RESTART: 'IDLE' }
+    },
+    async transition(action) {
+        const nextState = this.transitions[this.currentState]?.[action];
+        if (nextState) {
+            console.log(`State Transition: ${this.currentState} -> ${nextState}`);
+            this.currentState = nextState;
+            cleanupScreenListeners();
+            await this.runStateLogic();
+        } else {
+            console.error(`Transisi tidak valid dari ${this.currentState} dengan aksi ${action}`);
+        }
+    },
+    async runStateLogic() {
+        switch(this.currentState) {
+            case 'IDLE':
+                actions.resetQuiz();
+                ui.showScreen('start');
+                setupStartScreenListeners();
+                break;
+            case 'LOADING_CHOICES':
+                ui.showScreen('loading', 'Mencari pilihan topik...');
+                await handleAsync(async () => {
+                    const choiceData = await api.getChoices(state.quiz.topic);
+                    actions.setGeneratedData(choiceData);
+                    await this.transition('SUCCESS');
+                }, { fallbackState: 'IDLE' });
+                break;
+            case 'CHOOSING':
+                 // Pastikan data ada sebelum render
+                 if (state.quiz.generatedData && state.quiz.generatedData.choices) {
+                    ui.showScreen('choice', state.quiz.generatedData.choices);
+                    setupChoiceScreenListeners();
+                 } else {
+                    console.error("Data pilihan tidak ditemukan, kembali ke IDLE");
+                    await this.transition('FAIL');
+                 }
+                 break;
+            case 'LOADING_DECK':
+                ui.showScreen('loading', 'Membuat materi belajar...');
+                 await handleAsync(async () => {
+                    const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
+                    const cardCount = state.quiz.cardCount;
+                    const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode, cardCount);
+                    actions.setGeneratedData(generatedData);
+                    await this.transition('SUCCESS');
+                }, { fallbackState: 'IDLE' });
+                break;
+            case 'MEMORIZING':
+                ui.showScreen('memorize', state.quiz.generatedData);
+                setupMemorizeScreenListeners();
+                break;
+            case 'TESTING':
+                ui.showScreen('test', {
+                    card: state.quiz.generatedData.flashcards[state.quiz.currentCardIndex],
+                    index: state.quiz.currentCardIndex,
+                    total: state.quiz.generatedData.flashcards.length
+                });
+                setupTestScreenListeners();
+                break;
+            case 'RESULTS':
+                ui.showScreen('results', {
+                    score: state.quiz.score,
+                    total: state.quiz.generatedData.flashcards.length,
+                });
+                ui.triggerConfetti();
+                setupResultsScreenListeners();
+                break;
+        }
     }
+};
 
-    const targetUrl = `${GOOGLE_API_URL_BASE}?key=${state.settings.apiKey}`;
-    const options = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+let activeScreenListeners = [];
+
+function addScreenListener(element, event, handler) {
+    if (element) {
+        element.addEventListener(event, handler);
+        activeScreenListeners.push({ element, event, handler });
+    }
+}
+
+function cleanupScreenListeners() {
+    activeScreenListeners.forEach(({ element, event, handler }) => {
+        if (element) element.removeEventListener(event, handler);
+    });
+    activeScreenListeners = [];
+}
+
+function setupGlobalListeners() {
+    document.getElementById('view-deck-btn').addEventListener('click', () => { window.location.hash = 'deck'; });
+    const apiKeyInput = document.getElementById('api-key-input');
+    const themeSelector = document.getElementById('theme-selector');
+    if (apiKeyInput) {
+        apiKeyInput.value = state.settings.apiKey;
+        apiKeyInput.addEventListener('change', (e) => actions.setApiKey(e.target.value));
+    }
+    if (themeSelector) {
+        themeSelector.value = state.settings.theme;
+        themeSelector.addEventListener('change', (e) => actions.setTheme(e.target.value));
+    }
+}
+
+function setupStartScreenListeners() {
+    addScreenListener(document.getElementById('start-form'), 'submit', handleStart);
+    addScreenListener(document.getElementById('mode-topic-btn'), 'click', () => switchMode('topic'));
+    addScreenListener(document.getElementById('mode-file-btn'), 'click', () => switchMode('file'));
+    document.querySelectorAll('.difficulty-btn').forEach(btn => {
+        addScreenListener(btn, 'click', () => {
+            const difficulty = btn.dataset.difficulty;
+            document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            actions.setQuizDetails(state.quiz.topic, difficulty, state.quiz.cardCount);
+        });
+    });
+    setupFileHandling(handleFileProcessed);
+}
+
+function setupChoiceScreenListeners() {
+    let selectedChoice = null;
+    const confirmBtn = document.getElementById('confirm-choice-btn');
+    document.querySelectorAll('.choice-btn').forEach(btn => {
+        addScreenListener(btn, 'click', () => {
+            selectedChoice = btn.dataset.choiceTitle;
+            // PERBAIKAN KRITIS: Selalu teruskan 'cardCount' yang sudah ada di state
+            actions.setQuizDetails(selectedChoice, state.quiz.difficulty, state.quiz.cardCount);
+            document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            if (confirmBtn) confirmBtn.disabled = false;
+        });
+    });
+    addScreenListener(confirmBtn, 'click', () => {
+        if (selectedChoice) {
+            learningFlow.transition('CONFIRM');
+        }
+    });
+}
+
+function setupMemorizeScreenListeners() {
+    addScreenListener(document.getElementById('start-test-btn'), 'click', () => {
+        learningFlow.transition('START_TEST');
+    });
+}
+
+function setupTestScreenListeners() {
+    const revealBtn = document.getElementById('reveal-answer-btn');
+    const feedbackArea = document.getElementById('feedback-area');
+    const correctBtn = document.getElementById('correct-btn');
+    const incorrectBtn = document.getElementById('incorrect-btn');
+
+    addScreenListener(revealBtn, 'click', () => {
+        revealBtn.parentElement.classList.add('hidden');
+        feedbackArea.classList.remove('hidden');
+        if (correctBtn) correctBtn.focus();
+    });
+
+    const handleAnswer = (isCorrect) => {
+        const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
+        const deckName = state.quiz.currentDeckName;
+        if (deckName && currentCard.id) {
+            deck.updateCardMastery(deckName, currentCard.id, isCorrect);
+        }
+        if (isCorrect) {
+            actions.incrementScore();
+        }
+        actions.goToNextCard();
+        if (state.quiz.currentCardIndex >= state.quiz.generatedData.flashcards.length) {
+            learningFlow.transition('COMPLETE');
+        } else {
+            learningFlow.runStateLogic();
+        }
     };
 
+    addScreenListener(correctBtn, 'click', () => handleAnswer(true));
+    addScreenListener(incorrectBtn, 'click', () => handleAnswer(false));
+}
+
+function setupResultsScreenListeners() {
+    addScreenListener(document.getElementById('restart-btn'), 'click', () => learningFlow.transition('RESTART'));
+    addScreenListener(document.getElementById('save-deck-btn'), 'click', handleSaveDeck);
+}
+
+function setupDeckScreenListeners() {
+    document.querySelectorAll('.study-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => handleStudyDeck(e.currentTarget.dataset.deckName));
+    });
+    document.querySelectorAll('.rename-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => handleRenameDeck(e.currentTarget.dataset.deckName));
+    });
+    document.querySelectorAll('.delete-deck-btn').forEach(btn => {
+        addScreenListener(btn, 'click', (e) => handleDeleteDeck(e.currentTarget.dataset.deckName));
+    });
+}
+
+async function handleStart(event) {
+    event.preventDefault();
+    const difficulty = document.querySelector('.difficulty-btn.selected')?.dataset.difficulty || 'Mudah';
+    const cardCount = parseInt(document.getElementById('card-count-selector').value, 10);
+
+    if (state.session.currentMode === 'topic') {
+        const topic = document.getElementById('topic-input').value;
+        if (!topic) {
+            ui.showNotification('Mohon masukkan topik terlebih dahulu.', 'error');
+            return;
+        }
+        actions.setQuizDetails(topic, difficulty, cardCount);
+        await learningFlow.transition('SUBMIT_TOPIC');
+    } else {
+        if (!state.quiz.sourceText) {
+            ui.showNotification('Mohon pilih dan tunggu file selesai diproses.', 'error');
+            return;
+        }
+        actions.setQuizDetails(state.quiz.topic, difficulty, cardCount);
+        await learningFlow.transition('SUBMIT_FILE');
+    }
+}
+
+function handleSaveDeck() {
+    const defaultDeckName = state.quiz.topic || "Dek Baru";
+    const deckName = prompt("Masukkan nama untuk dek ini:", defaultDeckName);
+    if (deckName && deckName.trim() !== "") {
+        const flashcards = state.quiz.generatedData.flashcards;
+        flashcards.forEach(card => {
+            deck.saveNewCard(card, deckName);
+        });
+        ui.showNotification(`Berhasil menyimpan ${flashcards.length} kartu ke dek "${deckName}"!`, 'success');
+        document.getElementById('save-deck-btn').disabled = true;
+    } else if (deckName !== null) {
+        ui.showNotification('Nama dek tidak boleh kosong.', 'error');
+    }
+}
+
+function handleStudyDeck(deckName) {
+    const cards = deck.startDeckStudySession(deckName);
+    if (cards && cards.length > 0) {
+        actions.resetQuiz();
+        actions.setCurrentDeckName(deckName);
+
+        const deckData = {
+            summary: `Mempelajari kembali dek "${deckName}". Kartu diurutkan berdasarkan yang paling perlu diulang.`,
+            flashcards: cards.map(c => ({
+                id: c.id,
+                term: c.term || 'Istilah tidak tersedia',
+                simple_definition: c.simple_definition || c.definition || 'Definisi tidak tersedia.',
+                analogy_or_example: c.analogy_or_example || '',
+                active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang "${c.term || 'ini'}"?`,
+                question_clue: c.question_clue || ''
+            }))
+        };
+
+        actions.setGeneratedData(deckData);
+        learningFlow.currentState = 'MEMORIZING';
+        learningFlow.runStateLogic();
+    } else {
+        ui.showNotification("Selamat! Tidak ada kartu yang perlu ditinjau di dek ini hari ini.", "success");
+    }
+}
+
+function handleRenameDeck(oldName) {
+    const newName = prompt(`Masukkan nama baru untuk dek "${oldName}":`, oldName);
+    if (newName && newName.trim() !== "" && newName.trim() !== oldName) {
+        if (deck.renameDeck(oldName, newName)) {
+            ui.showNotification(`Nama dek diubah menjadi "${newName}"`, 'success');
+            handleRouteChange();
+        } else {
+            ui.showNotification("Nama dek sudah ada atau tidak valid.", "error");
+        }
+    }
+}
+
+function handleDeleteDeck(deckName) {
+    if (confirm(`Apakah kamu yakin ingin menghapus dek "${deckName}"? Aksi ini tidak bisa dibatalkan.`)) {
+        deck.deleteDeck(deckName);
+        ui.showNotification(`Deck "${deckName}" telah dihapus.`, 'success');
+        handleRouteChange();
+    }
+}
+
+function switchMode(mode) {
+    actions.setMode(mode);
+    ui.switchModeView(mode);
+}
+
+function handleFileProcessed(result) {
+    ui.updateFileProcessingView(result);
+    if (result.status === 'ready') {
+        actions.setSourceText(result.content.text);
+        actions.setQuizDetails(result.content.title, state.quiz.difficulty, state.quiz.cardCount);
+        ui.showNotification('File berhasil dibaca!', 'success');
+    } else if (result.status === 'error') {
+        ui.showNotification(`Gagal memproses file: ${result.message}`, 'error');
+    }
+}
+
+async function handleAsync(asyncOperation, options = {}) {
     try {
-        const response = await fetch(targetUrl, options);
-
-        if (!response.ok) {
-            let errorMessage = `Error pada [${functionName}]: Terjadi kesalahan jaringan (Status: ${response.status}).`;
-            try {
-                const errorBody = await response.json();
-                if (errorBody.error && errorBody.error.message) {
-                    errorMessage = `Error pada [${functionName}]: ${errorBody.error.message}`;
-                    if (response.status === 400) {
-                       errorMessage += " Periksa kembali apakah API Key Anda valid dan aktif.";
-                    } else if (response.status === 429) {
-                        errorMessage = "Batas permintaan API tercapai. Anda terlalu sering mengirim permintaan. Coba lagi beberapa saat.";
-                    } else if (response.status === 500) {
-                        errorMessage = "Terjadi masalah pada server Google AI. Coba lagi nanti.";
-                    }
-                }
-            } catch (e) {
-                console.error(`[${functionName}] Could not parse error response body for status ${response.status}:`, e);
-            }
-            throw new Error(errorMessage);
-        }
-
-        const result = await response.json();
-
-        if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
-            const finishReason = result.candidates?.[0]?.finishReason;
-            let reasonText = "Alasan tidak diketahui.";
-            switch(finishReason) {
-                case 'SAFETY':
-                    reasonText = "Respons diblokir karena kebijakan keamanan Google. Coba gunakan topik atau teks yang lebih umum.";
-                    break;
-                case 'RECITATION':
-                     reasonText = "Respons diblokir karena mengutip sumber lain terlalu panjang. Coba topik yang berbeda.";
-                     break;
-                case 'MAX_TOKENS':
-                    reasonText = "Input yang Anda berikan terlalu panjang untuk diproses model AI.";
-                    break;
-                default:
-                    reasonText = `AI tidak memberikan respons teks karena alasan: ${finishReason || 'Tidak Diketahui'}.`;
-            }
-            throw new Error(`Error pada [${functionName}]: ${reasonText}`);
-        }
-
-        try {
-            // Membersihkan JSON string dari karakter non-standar sebelum parsing
-            const cleanedText = result.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
-            return JSON.parse(cleanedText);
-        } catch (e) {
-            console.error(`[${functionName}] Failed to parse JSON from AI response:`, result.candidates[0].content.parts[0].text);
-            throw new Error(`Error pada [${functionName}]: AI memberikan format data yang tidak terduga. Gagal mem-parsing respons JSON.`);
-        }
-
+        await asyncOperation();
     } catch (error) {
-        console.error(`Kesalahan fundamental pada Panggilan API di [${functionName}]:`, error);
-        throw error;
+        console.error("Terjadi error:", error);
+        ui.showNotification(options.errorMessage || `Terjadi kesalahan: ${error.message}`, 'error');
+        if (options.fallbackState) {
+            await learningFlow.transition('FAIL');
+        }
     }
 }
 
-// =====================================================================
-// FUNGSI PUBLIK YANG DI-EKSPOR
-// =====================================================================
-
-/**
- * (UPGRADED) Meminta AI untuk memecah topik utama menjadi sub-topik konkret.
- * @param {string} topic - Topik utama dari pengguna.
- * @returns {Promise<object>} Objek dengan properti 'choices' yang berisi daftar sub-topik.
- */
-export async function getChoices(topic) {
-    const prompt = `Anda adalah seorang Pakar Kurikulum.
-    Tugas Anda adalah memecah topik utama yang kompleks menjadi beberapa SUB-TOPIK INTI yang konkret dan dapat dipelajari.
-
-    Topik Utama: "${topic}"
-
-    Instruksi:
-    1.  Identifikasi 4 hingga 5 sub-topik paling fundamental dan penting dari topik utama tersebut.
-    2.  Pilihan yang Anda berikan HARUS berupa topik spesifik, BUKAN jalur belajar abstrak seperti "level pemula" atau "analisis mendalam".
-    3.  Untuk setiap sub-topik, berikan judul (nama sub-topik itu sendiri) dan deskripsi singkat (1 kalimat) yang menjelaskan fokusnya.
-
-    Contoh:
-    - Jika Topik Utama adalah "Sejarah Indonesia", maka hasilnya bisa: "Masa Kerajaan Hindu-Buddha", "Masa Kesultanan Islam", "Era Kolonialisme", "Orde Lama & Orde Baru".
-    - Jika Topik Utama adalah "Pemrograman Web", maka hasilnya bisa: "HTML: Struktur Dasar", "CSS: Styling & Layout", "JavaScript: Interaktivitas", "Backend & Database".`;
-
-    const schema = {
-        type: "OBJECT",
-        properties: {
-            "choices": {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        "title": { type: "STRING", description: "Nama sub-topik yang spesifik dan jelas." },
-                        "description": { type: "STRING", description: "Deskripsi 1 kalimat yang ringkas tentang sub-topik." }
-                    },
-                    required: ["title", "description"]
-                }
-            }
-        },
-        required: ["choices"]
-    };
-
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.5 }
-    };
-    return safeFetch(payload, 'getChoices');
+function handleRouteChange() {
+    cleanupScreenListeners();
+    const hash = window.location.hash.substring(1);
+    switch(hash) {
+        case 'deck':
+            ui.showScreen('deck', { decks: state.userData.savedDecks });
+            setupDeckScreenListeners();
+            break;
+        case '':
+        case 'home':
+        default:
+            // PERBAIKAN KRITIS: Hapus kondisi 'if' yang salah.
+            // Selalu set state ke IDLE dan jalankan logikanya untuk memastikan
+            // layar awal selalu ditampilkan dengan benar.
+            learningFlow.currentState = 'IDLE';
+            learningFlow.runStateLogic();
+            break;
+    }
 }
 
-/**
- * (SUPERCHARGED) Meminta AI membuat ringkasan dan flashcards yang mendalam.
- * Fungsi ini memaksa AI untuk mengidentifikasi sub-topik sebelum membuat kartu.
- * @param {string} sourceMaterial - Topik atau teks dari file.
- * @param {'Mudah'|'Menengah'|'Sulit'} difficulty - Tingkat kesulitan.
- * @param {'topic'|'file'} mode - Mode input.
- * @param {number} cardCount - Jumlah kartu yang diinginkan pengguna.
- * @returns {Promise<object>} Objek dengan 'summary' dan 'flashcards' yang diperkaya.
- */
-export async function getDeck(sourceMaterial, difficulty, mode, cardCount = 10) {
-    const sourceInstruction = mode === 'topic' ? `topik "${sourceMaterial}"` : `teks berikut: "${sourceMaterial.substring(0, 4000)}"`;
+function init() {
+    initState();
+    ui.initUI();
+    setupGlobalListeners();
+    window.addEventListener('hashchange', handleRouteChange);
+    handleRouteChange(); // Panggil sekali saat load untuk menentukan halaman awal
+    console.log("Aplikasi Berotak Senku berhasil dimuat!");
+}
 
-    const difficultyInstruction = {
-        'Mudah': 'Fokus pada definisi dasar (APA itu X?), identifikasi komponen utama, dan fakta-fakta kunci.',
-        'Menengah': 'Fokus pada proses (BAGAIMANA X bekerja?), fungsi (UNTUK APA X?), dan hubungan sebab-akibat (MENGAPA X menyebabkan Y?).',
-        'Sulit': 'Fokus pada analisis komparatif (APA perbedaan X dan Y?), aplikasi dalam skenario, dan implikasi atau konsekuensi (APA dampaknya jika X tidak ada?).'
-    };
-
-    const prompt = `Anda adalah seorang Pakar Materi Pelajaran yang bertugas memecah topik kompleks menjadi bagian-bagian yang mudah dipelajari.
-
-    TUGAS ANDA:
-    Buat paket belajar dari ${sourceInstruction} dengan target ${cardCount} kartu belajar.
-
-    PROSES BERPIKIR ANDA (WAJIB DIIKUTI):
-    1.  **Analisis Topik**: Pertama, identifikasi ${cardCount} sub-topik atau konsep paling PENTING dan SPESIFIK dari materi sumber. Jangan hanya mengambil judul umum. Contoh: Jika topik utama "Sistem Pernapasan", sub-topik bisa "Alveolus", "Proses Pertukaran Gas", "Diafragma", bukan hanya "Paru-paru".
-    2.  **Pembuatan Kartu**: Untuk setiap sub-topik yang telah Anda identifikasi, buat satu flashcard.
-    3.  **Penyesuaian Kedalaman**: Isi setiap flashcard sesuai dengan tingkat kesulitan "${difficulty}": ${difficultyInstruction[difficulty]}.
-    4.  **Variasi Pertanyaan**: Pastikan setiap \`active_recall_question\` yang Anda buat menguji konsep dari sudut pandang yang berbeda. Hindari membuat pertanyaan dengan pola yang monoton. Gunakan kata tanya yang beragam (Contoh: Mengapa X terjadi?, Bagaimana Y bekerja?, Apa dampak dari Z?, Bandingkan A dan B?).
-
-    STRUKTUR OUTPUT JSON:
-    Sediakan ringkasan singkat terlebih dahulu, lalu buat flashcards. Setiap flashcard HARUS berisi:
-    - **term**: Nama sub-topik atau konsep spesifik yang Anda identifikasi.
-    - **simple_definition**: Penjelasan yang LUGAS, PADAT, dan 100% BEBAS JARGON tentang 'term' tersebut.
-    - **analogy_or_example**: Analogi yang relevan atau contoh nyata untuk membuat konsep mudah diingat.
-    - **active_recall_question**: Pertanyaan terbuka yang memicu pemikiran kritis sesuai tingkat kesulitan yang diminta.
-    - **question_clue**: Petunjuk satu kata untuk pertanyaan tersebut.`;
-
-    const schema = {
-        type: "OBJECT",
-        properties: {
-            "summary": { type: "STRING", description: "Ringkasan singkat dan menarik tentang topik utama." },
-            "flashcards": {
-                type: "ARRAY",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        "term": { type: "STRING" },
-                        "simple_definition": { type: "STRING" },
-                        "analogy_or_example": { type: "STRING" },
-                        "active_recall_question": { type: "STRING" },
-                        "question_clue": { type: "STRING" }
-                    },
-                    required: ["term", "simple_definition", "analogy_or_example", "active_recall_question", "question_clue"]
-                }
-                // PERBAIKAN FINAL: Menghapus baris 'minItems' dan 'maxItems' dari sini.
-                // Kedua baris ini adalah PENYEBAB error
+document.addEventListener('DOMContentLoaded', init);
