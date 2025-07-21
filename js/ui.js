@@ -1,13 +1,21 @@
 /**
+ * =====================================================================
+ * File: js/ui.js (VERSI UPGRADE - 21 Juli 2025)
+ * =====================================================================
+ *
  * ui.js: Modul Pengelola Tampilan (User Interface)
- * * VERSI FINAL: Menambahkan tombol Rename dan Delete pada tampilan dek.
+ * * PERBAIKAN: Memperbaiki bug 'undefined' dengan menyesuaikan tampilan ke struktur data baru dari api.js.
+ * * UPGRADE: Komponen flashcard kini menampilkan definisi simpel dan analogi/contoh untuk meningkatkan pemahaman.
+ * * UPGRADE: Alur layar tes dirombak total untuk mendukung metode self-assessment (penilaian diri)
+ * yang sejalan dengan prinsip Active Recall.
+ * * PENAMBAHAN: Ikon baru dan penyesuaian gaya untuk mendukung tampilan yang lebih kaya.
  */
 
 // =====================================================================
 // ELEMEN UTAMA & CACHE
 // =====================================================================
 let appContainer;
-const modalCache = {}; 
+const modalCache = {};
 
 // =====================================================================
 // FUNGSI INISIALISASI UI
@@ -34,10 +42,17 @@ const components = {
             </div>
         </div>
     `,
+    // PERUBAHAN DI SINI: Komponen flashcard kini lebih kaya untuk menampilkan data baru
     flashcard: (card) => `
-        <div class="p-4 border border-border-color rounded-lg bg-tertiary">
+        <div class="p-4 border border-border-color rounded-lg bg-tertiary space-y-2">
             <p class="font-bold text-lg">${card.term}</p>
-            <p class="text-secondary mt-1">${card.definition}</p>
+            <p class="text-primary">${card.simple_definition || 'Definisi tidak tersedia.'}</p>
+            ${card.analogy_or_example ? `
+            <div class="text-sm italic text-secondary p-2 bg-primary rounded-md border-l-4 border-accent-primary">
+                <span class="font-semibold">Analogi/Contoh: </span>
+                <span>${card.analogy_or_example}</span>
+            </div>
+            ` : ''}
         </div>
     `,
 };
@@ -95,18 +110,29 @@ const screenTemplates = {
             </div>
         </div>`,
     
+    // PERUBAHAN BESAR DI SINI: Template layar tes diubah total menjadi self-assessment
     test: ({ card, index, total }) => `
         <div id="test-screen" class="screen max-w-2xl w-full">
             <div class="card">
                 ${components.progressBar(((index) / total) * 100, index, total)}
-                <div id="question-area" class="my-8">
-                    <p class="text-center text-2xl leading-relaxed">${card.question.replace('____', '<span class="font-bold text-accent-primary">____</span>')}</p>
+                <div id="question-area" class="my-8 text-center">
+                    <p class="text-secondary text-sm font-semibold">Pertanyaan untuk diingat:</p>
+                    <p class="text-2xl leading-relaxed mt-2">${card.active_recall_question || 'Pertanyaan tidak tersedia.'}</p>
+                    <p class="text-xs text-secondary mt-2">(${card.question_clue ? `Petunjuk: ${card.question_clue}` : 'Tidak ada petunjuk'})</p>
                 </div>
-                <form id="test-form">
-                    <input type="text" id="answer-input" placeholder="Ketik jawabanmu di sini..." required autocomplete="off">
-                    <button type="submit" id="submit-answer-btn" class="btn btn-primary w-full mt-4 py-3">Periksa Jawaban</button>
-                </form>
-                <div id="feedback-area" class="mt-6 text-center"></div>
+                <div id="answer-reveal-area" class="text-center">
+                     <button id="reveal-answer-btn" class="btn btn-primary w-full mt-4 py-3">Tampilkan Jawaban</button>
+                </div>
+                <div id="feedback-area" class="mt-6 text-center hidden p-4 rounded-lg bg-accent-secondary">
+                     <p class="font-bold">${card.term}</p>
+                     <p class="mt-1">${card.simple_definition}</p>
+                     ${card.analogy_or_example ? `<p class="text-sm italic mt-3">${card.analogy_or_example}</p>` : ''}
+                     <p class="mt-4 font-semibold">Apakah kamu berhasil mengingatnya?</p>
+                     <div class="flex gap-4 mt-2">
+                        <button id="correct-btn" class="btn btn-success w-full flex items-center justify-center gap-2"><i data-lucide="check" class="w-5 h-5"></i> Benar</button>
+                        <button id="incorrect-btn" class="btn btn-error w-full flex items-center justify-center gap-2"><i data-lucide="x" class="w-5 h-5"></i> Salah</button>
+                     </div>
+                </div>
             </div>
         </div>`,
 
@@ -126,7 +152,6 @@ const screenTemplates = {
             </div>
         </div>`,
     
-    // PERBAIKAN DI SINI: Menambahkan tombol Rename dan Delete
     deck: ({ decks }) => {
         const hasDecks = Object.keys(decks).length > 0;
         const deckList = hasDecks ? Object.entries(decks).map(([name, cards]) => `
@@ -195,24 +220,10 @@ export function updateFileProcessingView(result) {
     }
 }
 
+// FUNGSI INI TIDAK LAGI DIGUNAKAN KARENA PERUBAHAN ALUR TES
 export function showTestResult(isCorrect, correctAnswer) {
-    const feedbackArea = document.getElementById('feedback-area');
-    const answerInput = document.getElementById('answer-input');
-    const submitBtn = document.getElementById('submit-answer-btn');
-    
-    if (!feedbackArea || !answerInput || !submitBtn) return;
-
-    answerInput.disabled = true;
-    submitBtn.style.display = 'none';
-
-    let feedbackHTML = '';
-    if (isCorrect) {
-        feedbackHTML = `<div class="p-4 rounded-lg bg-green-100 text-green-800"><p class="font-bold">Benar!</p></div>`;
-    } else {
-        feedbackHTML = `<div class="p-4 rounded-lg bg-red-100 text-red-800"><p class="font-bold">Kurang Tepat</p><p>Jawaban yang benar adalah: <strong class="font-bold">${correctAnswer}</strong></p></div>`;
-    }
-
-    feedbackArea.innerHTML = `${feedbackHTML}<button id="next-question-btn" class="btn btn-primary w-full mt-4 py-3">Lanjut</button>`;
+    // Deprecated. Logic is now handled inside setupTestScreenListeners and the new test template.
+    // This function can be safely removed if no other part of the app calls it.
 }
 
 export function showNotification(message, type = 'info', duration = 3000) {
