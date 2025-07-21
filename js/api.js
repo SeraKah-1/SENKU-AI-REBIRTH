@@ -1,23 +1,13 @@
 /**
  * =======================================================================================
- * File: js/api.js (VERSI FINAL UPGRADE - 21 Juli 2025)
+ * File: js/api.js (VERSI FINAL & DIPERBAIKI)
  * =======================================================================================
  *
  * api.js: Lapisan Interaksi AI yang Ditingkatkan Secara Pedagogis
  *
- * PERUBAHAN UTAMA DI VERSI INI:
- * 1.  **Fungsi `getChoices` Dirombak**: Kini AI bertugas memecah topik utama menjadi
- * beberapa sub-topik konkret yang bisa dipilih langsung oleh pengguna, menghilangkan
- * pilihan "level" yang ambigu.
- * 2.  **Fungsi `getDeck` Supercharged**:
- * - Menerima parameter `cardCount` untuk kontrol penuh atas jumlah kartu (5, 10, 15).
- * - Menggunakan "Proses Berpikir" dua langkah yang memaksa AI untuk mengidentifikasi
- * sub-topik spesifik terlebih dahulu sebelum membuat kartu, memastikan konten tidak
- * terlalu umum atau dangkal.
- * - Tingkat kesulitan kini secara aktif mengubah JENIS pertanyaan (faktual, konseptual,
- * analitis) untuk kedalaman belajar yang sesungguhnya.
- * 3.  **Penanganan Error Detail**: Fungsi `safeFetch` tetap tangguh untuk memberikan
- * feedback error yang jelas dan membantu.
+ * * PERBAIKAN FINAL: Menghapus batasan `minItems` dan `maxItems` dari schema `getDeck`
+ * untuk mengatasi error "too many states for serving" dari Google AI API. Tindakan ini
+ * TIDAK menghilangkan fitur, hanya memperbaiki cara kita berkomunikasi dengan AI.
  *
  * =======================================================================================
  */
@@ -98,7 +88,9 @@ async function safeFetch(payload, functionName = 'unknown') {
         }
 
         try {
-            return JSON.parse(result.candidates[0].content.parts[0].text);
+            // Membersihkan JSON string dari karakter non-standar sebelum parsing
+            const cleanedText = result.candidates[0].content.parts[0].text.replace(/```json|```/g, '').trim();
+            return JSON.parse(cleanedText);
         } catch (e) {
             console.error(`[${functionName}] Failed to parse JSON from AI response:`, result.candidates[0].content.parts[0].text);
             throw new Error(`Error pada [${functionName}]: AI memberikan format data yang tidak terduga. Gagal mem-parsing respons JSON.`);
@@ -186,9 +178,10 @@ export async function getDeck(sourceMaterial, difficulty, mode, cardCount = 10) 
     1.  **Analisis Topik**: Pertama, identifikasi ${cardCount} sub-topik atau konsep paling PENTING dan SPESIFIK dari materi sumber. Jangan hanya mengambil judul umum. Contoh: Jika topik utama "Sistem Pernapasan", sub-topik bisa "Alveolus", "Proses Pertukaran Gas", "Diafragma", bukan hanya "Paru-paru".
     2.  **Pembuatan Kartu**: Untuk setiap sub-topik yang telah Anda identifikasi, buat satu flashcard.
     3.  **Penyesuaian Kedalaman**: Isi setiap flashcard sesuai dengan tingkat kesulitan "${difficulty}": ${difficultyInstruction[difficulty]}.
+    4.  **Variasi Pertanyaan**: Pastikan setiap \`active_recall_question\` yang Anda buat menguji konsep dari sudut pandang yang berbeda. Hindari membuat pertanyaan dengan pola yang monoton. Gunakan kata tanya yang beragam (Contoh: Mengapa X terjadi?, Bagaimana Y bekerja?, Apa dampak dari Z?, Bandingkan A dan B?).
 
     STRUKTUR OUTPUT JSON:
-    Setiap flashcard HARUS berisi:
+    Sediakan ringkasan singkat terlebih dahulu, lalu buat flashcards. Setiap flashcard HARUS berisi:
     - **term**: Nama sub-topik atau konsep spesifik yang Anda identifikasi.
     - **simple_definition**: Penjelasan yang LUGAS, PADAT, dan 100% BEBAS JARGON tentang 'term' tersebut.
     - **analogy_or_example**: Analogi yang relevan atau contoh nyata untuk membuat konsep mudah diingat.
@@ -198,7 +191,7 @@ export async function getDeck(sourceMaterial, difficulty, mode, cardCount = 10) 
     const schema = {
         type: "OBJECT",
         properties: {
-            "summary": { type: "STRING" },
+            "summary": { type: "STRING", description: "Ringkasan singkat dan menarik tentang topik utama." },
             "flashcards": {
                 type: "ARRAY",
                 items: {
@@ -211,17 +204,6 @@ export async function getDeck(sourceMaterial, difficulty, mode, cardCount = 10) 
                         "question_clue": { type: "STRING" }
                     },
                     required: ["term", "simple_definition", "analogy_or_example", "active_recall_question", "question_clue"]
-                },
-                minItems: cardCount,
-                maxItems: cardCount
-            }
-        },
-        required: ["summary", "flashcards"]
-    };
-
-    const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.6 }
-    };
-    return safeFetch(payload, 'getDeck');
-}
+                }
+                // PERBAIKAN FINAL: Menghapus baris 'minItems' dan 'maxItems' dari sini.
+                // Kedua baris ini adalah PENYEBAB error
