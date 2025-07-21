@@ -1,15 +1,13 @@
 /**
  * =====================================================================
- * File: js/ui.js (VERSI FINAL UPGRADE - 21 Juli 2025)
+ * File: js/ui.js (FINAL VERSION)
  * =====================================================================
  *
  * ui.js: Modul Pengelola Tampilan (User Interface)
- * * PERBAIKAN KUNCI: Memodifikasi `switchModeView` untuk secara dinamis
- * mengubah atribut `required` pada input topik. Ini memperbaiki bug di
- * mana form tidak bisa disubmit saat mode "Dari File" aktif.
- * * PENAMBAHAN: Menambahkan dropdown untuk memilih jumlah kartu.
- * * UPGRADE: Komponen flashcard menampilkan definisi dan analogi.
- * * UPGRADE: Alur tes dirombak untuk mendukung Active Recall.
+ * * PERBAIKAN: Fungsi `updateFileProcessingView` kini menampilkan pesan
+ * progres yang lebih detail dari worker (misal: "Menjalankan OCR...").
+ * * PERBAIKAN: Logika `switchModeView` diperbaiki untuk menangani atribut
+ * `required` pada form, mengatasi bug tombol "Lanjutkan".
  */
 
 // =====================================================================
@@ -224,11 +222,6 @@ export function showScreen(screenId, data) {
     }
 }
 
-/**
- * --- PERBAIKAN KUNCI ADA DI SINI ---
- * Mengalihkan tampilan dan status `required` pada input.
- * @param {'topic' | 'file'} mode - Mode yang akan diaktifkan.
- */
 export function switchModeView(mode) {
     const topicContainer = document.getElementById('topic-input-container');
     const fileContainer = document.getElementById('file-input-container');
@@ -240,32 +233,43 @@ export function switchModeView(mode) {
     if (topicContainer && fileContainer && topicInput) {
         topicContainer.classList.toggle('hidden', mode !== 'topic');
         fileContainer.classList.toggle('hidden', mode !== 'file');
-        
-        // Jika mode 'file', hapus 'required' dari input topik agar form bisa submit.
-        // Jika mode 'topic', tambahkan kembali 'required'.
         topicInput.required = (mode === 'topic');
     }
 }
 
+/**
+ * --- FUNGSI INI DIPERBARUI ---
+ * Menampilkan status pemrosesan file ke UI dengan lebih detail.
+ * @param {object} result - Objek status dari worker.
+ */
 export function updateFileProcessingView(result) {
     const fileNameDisplay = document.getElementById('file-name-display');
     if (!fileNameDisplay) return;
 
-    if (result.status === 'processing') {
-        fileNameDisplay.textContent = `Memproses: ${result.name}...`;
-        fileNameDisplay.className = 'mt-4 font-semibold text-secondary';
-    } else if (result.status === 'progress') {
-        fileNameDisplay.textContent = result.details || `Memproses...`;
-        fileNameDisplay.className = 'mt-4 font-semibold text-secondary';
-    } else if (result.status === 'ready' && result.content) {
-        const metadata = result.content.metadata;
-        fileNameDisplay.textContent = `Siap: ${metadata.fileName} (${metadata.wordCount} kata)`;
-        fileNameDisplay.className = 'mt-4 font-semibold text-accent-primary';
-    } else if (result.status === 'error') {
-        fileNameDisplay.textContent = result.message || 'Gagal memproses file.';
-        fileNameDisplay.className = 'mt-4 font-semibold text-red-500';
+    switch (result.status) {
+        case 'processing':
+            fileNameDisplay.textContent = `Mempersiapkan: ${result.name}...`;
+            fileNameDisplay.className = 'mt-4 font-semibold text-secondary';
+            break;
+        case 'progress':
+            // Menampilkan pesan detail dari worker, seperti "Menjalankan OCR..."
+            fileNameDisplay.textContent = result.details || 'Memproses...';
+            fileNameDisplay.className = 'mt-4 font-semibold text-secondary';
+            break;
+        case 'ready':
+            if (result.content && result.content.metadata) {
+                const { fileName, wordCount } = result.content.metadata;
+                fileNameDisplay.textContent = `Siap: ${fileName} (${wordCount} kata)`;
+                fileNameDisplay.className = 'mt-4 font-semibold text-accent-primary';
+            }
+            break;
+        case 'error':
+            fileNameDisplay.textContent = result.message || 'Gagal memproses file.';
+            fileNameDisplay.className = 'mt-4 font-semibold text-red-500';
+            break;
     }
 }
+
 
 export function showNotification(message, type = 'info', duration = 3000) {
     const container = document.getElementById('notification-container');
@@ -281,7 +285,6 @@ export function showNotification(message, type = 'info', duration = 3000) {
 }
 
 export function triggerConfetti() {
-    // Pastikan library confetti sudah dimuat di HTML jika ingin digunakan
     if (typeof confetti === 'function') {
         confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 }, zIndex: 10000 });
     }
