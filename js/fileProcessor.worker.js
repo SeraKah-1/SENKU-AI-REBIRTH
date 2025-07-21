@@ -1,21 +1,19 @@
 /**
  * =====================================================================
- * File: js/fileProcessor.worker.js (VERSI MODERN - ESM)
+ * File: js/fileProcessor.worker.js (VERSI MODERN - DIPERBAIKI)
  * =====================================================================
- *
- * Menggunakan metode import modul JavaScript modern, bukan importScripts.
- * Ini membuat kode lebih bersih dan sesuai dengan praktik pengembangan web saat ini.
  */
 
 // =====================================================================
 // IMPOR LIBRARY MODERN (ESM) DARI CDN
 // =====================================================================
 import mammoth from 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/+esm';
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/+esm';
+// UBAH CARA IMPORT PDF.JS
+import { getDocument, GlobalWorkerOptions } from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/+esm';
 import { createWorker } from 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/+esm';
 
-// Konfigurasi path untuk sub-worker yang dibutuhkan oleh PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
+// Konfigurasi path untuk worker milik PDF.js
+GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js`;
 
 
 // =====================================================================
@@ -78,7 +76,8 @@ self.onmessage = async (event) => {
 
 async function extractTextFromPdf(file) {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    // Panggil getDocument langsung, bukan lewat pdfjsLib
+    const pdf = await getDocument({ data: arrayBuffer }).promise;
     let fullText = '';
 
     for (let i = 1; i <= pdf.numPages; i++) {
