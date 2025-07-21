@@ -1,15 +1,15 @@
 /**
  * =====================================================================
- * File: main.js (VERSI UPGRADE - 21 Juli 2025)
+ * File: main.js (VERSI FINAL UPGRADE - 21 Juli 2025)
  * =====================================================================
  *
  * main.js: Otak & Sutradara Aplikasi (Controller)
- * * PERBAIKAN: Bug "undefined" untuk nama dek dari file upload telah diperbaiki sebelumnya.
+ * * PENAMBAHAN: Mengambil nilai jumlah kartu dari UI dan mengirimkannya ke api.getDeck
+ * saat membuat materi belajar.
  * * UPGRADE: Logika `setupTestScreenListeners` dirombak total untuk menangani alur tes
  * penilaian diri (self-assessment), sesuai dengan perubahan pada ui.js.
  * * UPGRADE: `handleSaveDeck` dan `handleStudyDeck` disesuaikan untuk menyimpan dan
  * memuat struktur data kartu yang lebih kaya (dengan analogi, dll.).
- * * Stabilitas alur utama (learningFlow) tetap dipertahankan.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -59,7 +59,14 @@ const learningFlow = {
                 ui.showScreen('loading', 'Membuat materi belajar...');
                  await handleAsync(async () => {
                     const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
-                    const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode);
+                    
+                    // MENGAMBIL NILAI JUMLAH KARTU DARI UI
+                    const cardCountElement = document.getElementById('card-count-selector');
+                    const cardCount = cardCountElement ? parseInt(cardCountElement.value) : 10;
+
+                    // MENGIRIMKAN cardCount KE API
+                    const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode, cardCount);
+                    
                     actions.setGeneratedData(generatedData);
                     await this.transition('SUCCESS');
                 }, { fallbackState: 'IDLE' });
@@ -160,18 +167,16 @@ function setupMemorizeScreenListeners() {
     });
 }
 
-// PERUBAHAN BESAR DI SINI: Logika pengetesan diubah total
 function setupTestScreenListeners() {
     const revealBtn = document.getElementById('reveal-answer-btn');
     const feedbackArea = document.getElementById('feedback-area');
     const correctBtn = document.getElementById('correct-btn');
     const incorrectBtn = document.getElementById('incorrect-btn');
 
-    // Tampilkan jawaban saat tombol di klik
     addScreenListener(revealBtn, 'click', () => {
-        revealBtn.parentElement.classList.add('hidden'); // Sembunyikan tombol "Tampilkan Jawaban"
-        feedbackArea.classList.remove('hidden'); // Tampilkan area feedback
-        if (correctBtn) correctBtn.focus(); // Fokus ke tombol "Benar"
+        revealBtn.parentElement.classList.add('hidden');
+        feedbackArea.classList.remove('hidden');
+        if (correctBtn) correctBtn.focus();
     });
 
     const handleAnswer = (isCorrect) => {
@@ -182,7 +187,7 @@ function setupTestScreenListeners() {
         if (state.quiz.currentCardIndex >= state.quiz.generatedData.flashcards.length) {
             learningFlow.transition('COMPLETE');
         } else {
-            learningFlow.runStateLogic(); // Lanjut ke kartu berikutnya
+            learningFlow.runStateLogic();
         }
     };
 
@@ -237,14 +242,12 @@ async function handleStart(event) {
     }
 }
 
-// PERUBAHAN KECIL DI SINI: Menyimpan seluruh objek kartu yang kaya
 function handleSaveDeck() {
     const defaultDeckName = state.quiz.topic || "Dek Baru";
     const deckName = prompt("Masukkan nama untuk dek ini:", defaultDeckName);
     if (deckName && deckName.trim() !== "") {
         const flashcards = state.quiz.generatedData.flashcards;
         flashcards.forEach(card => {
-            // Menyimpan seluruh objek kartu, bukan hanya term dan definition
             deck.saveNewCard(card, deckName);
         });
         ui.showNotification(`Berhasil menyimpan ${flashcards.length} kartu ke dek "${deckName}"!`, 'success');
@@ -254,25 +257,21 @@ function handleSaveDeck() {
     }
 }
 
-// PERUBAHAN DI SINI: Memastikan data yang dimuat dari dek sesuai dengan format baru
 function handleStudyDeck(deckName) {
     const cards = deck.startDeckStudySession(deckName);
     if (cards && cards.length > 0) {
-        // Buat ulang objek 'generatedData' agar sesuai dengan yang diharapkan oleh UI
         const deckData = {
             summary: `Mempelajari kembali dek "${deckName}"`,
             flashcards: cards.map(c => ({
                 term: c.term,
-                // Pastikan semua properti yang dibutuhkan oleh UI ada di sini
-                simple_definition: c.simple_definition || c.definition, // Fallback untuk dek lama
+                simple_definition: c.simple_definition || c.definition,
                 analogy_or_example: c.analogy_or_example || '',
-                active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang ${c.term}?`, // Fallback
+                active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang ${c.term}?`,
                 question_clue: c.question_clue || 'Definisi'
             }))
         };
         actions.resetQuiz();
         actions.setGeneratedData(deckData);
-        // Langsung transisi ke tahap MEMORIZING, melewati loading
         learningFlow.currentState = 'LOADING_DECK';
         learningFlow.transition('SUCCESS');
     } else {
