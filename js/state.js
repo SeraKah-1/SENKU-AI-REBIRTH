@@ -4,10 +4,10 @@
  * =====================================================================
  *
  * state.js: Sumber Kebenaran Tunggal (Single Source of Truth)
- * * PERBAIKAN: Menambahkan 'currentDeckName' untuk melacak dek yang sedang 
+ * * PERBAIKAN: Menambahkan 'currentDeckName' untuk melacak dek yang sedang
  * dipelajari, memungkinkan fitur Spaced Repetition berfungsi dengan benar.
- * * PERBAIKAN: Menambahkan actions untuk CRUD pada dek dan kartu agar 
- * terintegrasi penuh dengan deck.js.
+ * * PERBAIKAN: Menambahkan 'cardCount' untuk menyimpan pilihan jumlah kartu
+ * dari pengguna, memperbaiki bug di mana jumlah kartu selalu kembali ke 10.
  * * PERBAIKAN: Menyesuaikan cara tema diterapkan agar cocok dengan file style.css.
  */
 
@@ -22,6 +22,7 @@ export const state = {
     quiz: {
         topic: '',
         difficulty: 'Mudah',
+        cardCount: 10, // <-- PERBAIKAN: Menyimpan jumlah kartu yang dipilih pengguna.
         generatedData: null,
         currentCardIndex: 0,
         score: 0,
@@ -51,9 +52,13 @@ export const actions = {
     },
 
     // --- Actions untuk Kuis ---
-    setQuizDetails(topic, difficulty) {
+    // PERBAIKAN: Tambahkan parameter cardCount untuk disimpan ke state
+    setQuizDetails(topic, difficulty, cardCount) {
         state.quiz.topic = topic;
         state.quiz.difficulty = difficulty;
+        if (cardCount !== undefined) {
+            state.quiz.cardCount = cardCount;
+        }
     },
     setCurrentDeckName(deckName) {
         state.quiz.currentDeckName = deckName;
@@ -73,6 +78,7 @@ export const actions = {
     resetQuiz() {
         state.quiz.topic = '';
         state.quiz.difficulty = document.querySelector('.difficulty-btn.selected')?.dataset.difficulty || 'Mudah';
+        state.quiz.cardCount = 10; // <-- PERBAIKAN: Reset jumlah kartu ke nilai default.
         state.quiz.generatedData = null;
         state.quiz.currentCardIndex = 0;
         state.quiz.score = 0;
@@ -131,7 +137,7 @@ export const actions = {
             this.saveUserDataToStorage();
         }
     },
-    
+
     /**
      * Mengedit konten dari sebuah kartu di dalam dek.
      * @param {string} deckName - Nama dek.
@@ -173,7 +179,7 @@ export const actions = {
             this.saveUserDataToStorage();
         }
     },
-    
+
     /**
      * Menghapus seluruh dek.
      * @param {string} deckName - Nama dek yang akan dihapus.
@@ -199,7 +205,7 @@ export function init() {
     if (savedUserData) {
         Object.assign(state.userData, JSON.parse(savedUserData));
     }
-    
+
     // Terapkan tema yang benar saat aplikasi pertama kali dimuat
     actions.setTheme(state.settings.theme);
 
