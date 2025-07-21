@@ -1,9 +1,10 @@
 /**
  * =====================================================================
- * File: js/fileHandler.js
+ * File: js/fileHandler.js (VERSI DIPERBARUI)
  * =====================================================================
  *
  * fileHandler.js: Modul Pengelola Input File (Manajer)
+ * * PERUBAHAN: Mengubah cara Worker dipanggil agar mendukung modul JavaScript modern (ESM).
  * * Bertanggung jawab untuk semua interaksi UI yang berhubungan dengan upload file.
  * * Menggunakan Web Worker untuk memproses file di background thread agar UI tetap responsif.
  * * Menerima file dari pengguna dan mendelegasikannya ke fileProcessor.worker.js.
@@ -76,24 +77,28 @@ function processFile(file, callback) {
         callback({ status: 'processing', name: file.name });
         
         // Buat instance worker baru dari file eksternal.
-        // Pastikan path './js/fileProcessor.worker.js' sudah benar.
-        const worker = new Worker('./js/fileProcessor.worker.js');
+        // Tambahkan { type: 'module' } agar worker bisa menggunakan 'import'.
+        const worker = new Worker('./js/fileProcessor.worker.js', { type: 'module' });
 
         // Kirim objek 'File' ke worker untuk diproses di latar belakang.
         worker.postMessage(file);
 
         // Siapkan listener untuk menerima pesan balasan dari worker.
         worker.onmessage = (event) => {
-            const { status, content, preview, message } = event.data;
+            const { status, content, preview, message, progress, details } = event.data;
             
             // Teruskan hasil dari worker ke callback (yang akan ditangani di main.js)
             if (status === 'ready') {
                 callback({ status: 'ready', content, preview });
-            } else {
-                callback({ status: 'error', message });
+                // Hentikan worker setelah selesai untuk melepaskan memori.
+                worker.terminate();
+            } else if (status === 'progress') {
+                // Kamu bisa menambahkan logika untuk menampilkan progress bar di sini jika mau
+                console.log(`Progress: ${progress}% - ${details}`);
+            } else if (status === 'error') {
+                 callback({ status: 'error', message });
+                 worker.terminate();
             }
-            // Hentikan worker setelah selesai untuk melepaskan memori.
-            worker.terminate();
         };
 
         // Siapkan listener untuk menangani error yang mungkin terjadi di dalam worker.
