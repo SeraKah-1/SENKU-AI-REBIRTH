@@ -1,11 +1,13 @@
 /**
  * =====================================================================
- * File: main.js (VERSI FINAL UPGRADE - 21 Juli 2025)
+ * File: main.js (VERSI DIPERBAIKI)
  * =====================================================================
  *
  * main.js: Otak & Sutradara Aplikasi (Controller)
+ * * PERBAIKAN: Memperbaiki logika 'handleStart' dan 'LOADING_DECK' untuk
+ * memastikan pilihan jumlah kartu (5, 10, 15) tersimpan dan digunakan dengan benar.
  * * PERBAIKAN: Memperbaiki logika 'handleStudyDeck' dan 'handleAnswer'
- * untuk memastikan fitur Spaced Repetition (SRS) berfungsi dengan benar.
+ * untuk memastikan fitur Spaced Repetition (SRS) dan tampilan kartu berfungsi dengan benar.
  */
 import { state, actions, init as initState } from './state.js';
 import * as ui from './ui.js';
@@ -46,23 +48,26 @@ const learningFlow = {
                 ui.showScreen('loading', 'Mencari pilihan topik...');
                 await handleAsync(async () => {
                     const choiceData = await api.getChoices(state.quiz.topic);
-                    this.currentState = 'CHOOSING';
-                    ui.showScreen('choice', choiceData.choices);
-                    setupChoiceScreenListeners();
+                    actions.setGeneratedData(choiceData); // Simpan pilihan ke state jika diperlukan nanti
+                    await this.transition('SUCCESS'); // Transisi ke CHOOSING
                 }, { fallbackState: 'IDLE' });
                 break;
+            case 'CHOOSING':
+                 ui.showScreen('choice', state.quiz.generatedData.choices);
+                 setupChoiceScreenListeners();
+                 break;
             case 'LOADING_DECK':
                 ui.showScreen('loading', 'Membuat materi belajar...');
                  await handleAsync(async () => {
                     const source = state.session.currentMode === 'topic' ? state.quiz.topic : state.quiz.sourceText;
-                    
-                    const cardCountElement = document.getElementById('card-count-selector');
-                    const cardCount = cardCountElement ? parseInt(cardCountElement.value) : 10;
+
+                    // PERBAIKAN: Gunakan nilai cardCount dari state, bukan dari elemen HTML
+                    const cardCount = state.quiz.cardCount;
 
                     const generatedData = await api.getDeck(source, state.quiz.difficulty, state.session.currentMode, cardCount);
-                    
+
                     actions.setGeneratedData(generatedData);
-                    await this.transition('SUCCESS');
+                    await this.transition('SUCCESS'); // Transisi ke MEMORIZING
                 }, { fallbackState: 'IDLE' });
                 break;
             case 'MEMORIZING':
@@ -128,9 +133,10 @@ function setupStartScreenListeners() {
     document.querySelectorAll('.difficulty-btn').forEach(btn => {
         addScreenListener(btn, 'click', () => {
             const difficulty = btn.dataset.difficulty;
-            actions.setQuizDetails(state.quiz.topic, difficulty);
             document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
+            // Simpan kesulitan ke state saat diubah
+            actions.setQuizDetails(state.quiz.topic, difficulty, state.quiz.cardCount);
         });
     });
     setupFileHandling(handleFileProcessed);
@@ -142,7 +148,8 @@ function setupChoiceScreenListeners() {
     document.querySelectorAll('.choice-btn').forEach(btn => {
         addScreenListener(btn, 'click', () => {
             selectedChoice = btn.dataset.choiceTitle;
-            actions.setQuizDetails(selectedChoice, state.quiz.difficulty);
+            // Simpan topik baru yang dipilih ke state
+            actions.setQuizDetails(selectedChoice, state.quiz.difficulty, state.quiz.cardCount);
             document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
             btn.classList.add('selected');
             if (confirmBtn) confirmBtn.disabled = false;
@@ -174,14 +181,13 @@ function setupTestScreenListeners() {
     });
 
     const handleAnswer = (isCorrect) => {
-        // PERBAIKAN: Memanggil logika Spaced Repetition
         const currentCard = state.quiz.generatedData.flashcards[state.quiz.currentCardIndex];
         const deckName = state.quiz.currentDeckName;
 
         if (deckName && currentCard.id) {
             deck.updateCardMastery(deckName, currentCard.id, isCorrect);
         }
-        
+
         if (isCorrect) {
             actions.incrementScore();
         }
@@ -190,7 +196,7 @@ function setupTestScreenListeners() {
         if (state.quiz.currentCardIndex >= state.quiz.generatedData.flashcards.length) {
             learningFlow.transition('COMPLETE');
         } else {
-            learningFlow.runStateLogic();
+            learningFlow.runStateLogic(); // Memuat kartu berikutnya
         }
     };
 
@@ -227,20 +233,25 @@ function setupDeckScreenListeners() {
 async function handleStart(event) {
     event.preventDefault();
     const difficulty = document.querySelector('.difficulty-btn.selected')?.dataset.difficulty || 'Mudah';
+    // PERBAIKAN: Ambil nilai jumlah kartu dari dropdown
+    const cardCount = parseInt(document.getElementById('card-count-selector').value, 10);
+
     if (state.session.currentMode === 'topic') {
         const topic = document.getElementById('topic-input').value;
         if (!topic) {
             ui.showNotification('Mohon masukkan topik terlebih dahulu.', 'error');
             return;
         }
-        actions.setQuizDetails(topic, difficulty);
+        // PERBAIKAN: Simpan semua detail (termasuk cardCount) ke state
+        actions.setQuizDetails(topic, difficulty, cardCount);
         await learningFlow.transition('SUBMIT_TOPIC');
     } else {
         if (!state.quiz.sourceText) {
             ui.showNotification('Mohon pilih dan tunggu file selesai diproses.', 'error');
             return;
         }
-        actions.setQuizDetails(state.quiz.topic, difficulty);
+         // PERBAIKAN: Simpan semua detail (termasuk cardCount) ke state
+        actions.setQuizDetails(state.quiz.topic, difficulty, cardCount);
         await learningFlow.transition('SUBMIT_FILE');
     }
 }
@@ -255,8 +266,8 @@ function handleSaveDeck() {
         });
         ui.showNotification(`Berhasil menyimpan ${flashcards.length} kartu ke dek "${deckName}"!`, 'success');
         document.getElementById('save-deck-btn').disabled = true;
-    } else {
-        ui.showNotification('Penyimpanan dibatalkan.', 'error');
+    } else if (deckName !== null) { // Hanya tampilkan error jika pengguna tidak menekan "Cancel"
+        ui.showNotification('Nama dek tidak boleh kosong.', 'error');
     }
 }
 
@@ -268,20 +279,21 @@ function handleStudyDeck(deckName) {
 
         const deckData = {
             summary: `Mempelajari kembali dek "${deckName}"`,
-            // PERBAIKAN: Memastikan 'id' kartu ikut terbawa ke sesi belajar
+            // PERBAIKAN: Memastikan pemetaan data yang kuat untuk mencegah 'undefined'
             flashcards: cards.map(c => ({
-                id: c.id, 
-                term: c.term,
-                simple_definition: c.simple_definition || c.definition,
+                id: c.id,
+                term: c.term || 'Istilah tidak tersedia',
+                simple_definition: c.simple_definition || c.definition || 'Definisi tidak tersedia.',
                 analogy_or_example: c.analogy_or_example || '',
                 active_recall_question: c.active_recall_question || `Apa yang kamu ketahui tentang ${c.term}?`,
-                question_clue: c.question_clue || 'Definisi'
+                question_clue: c.question_clue || 'Tidak ada petunjuk'
             }))
         };
-        
+
         actions.setGeneratedData(deckData);
-        learningFlow.currentState = 'LOADING_DECK';
-        learningFlow.transition('SUCCESS');
+        // PERBAIKAN: Langsung ke state MEMORIZING untuk alur yang lebih bersih
+        learningFlow.currentState = 'MEMORIZING';
+        learningFlow.runStateLogic();
     } else {
         ui.showNotification("Selamat! Tidak ada kartu yang perlu ditinjau hari ini.", "success");
     }
@@ -316,7 +328,7 @@ function handleFileProcessed(result) {
     ui.updateFileProcessingView(result);
     if (result.status === 'ready') {
         actions.setSourceText(result.content.text);
-        actions.setQuizDetails(result.content.title, state.quiz.difficulty);
+        actions.setQuizDetails(result.content.title, state.quiz.difficulty, state.quiz.cardCount);
         ui.showNotification('File berhasil dibaca!', 'success');
     } else if (result.status === 'error') {
         ui.showNotification(`Gagal memproses file: ${result.message}`, 'error');
@@ -346,8 +358,11 @@ function handleRouteChange() {
         case '':
         case 'home':
         default:
-            learningFlow.currentState = 'IDLE';
-            learningFlow.runStateLogic();
+            // Jangan reset state jika hanya berpindah hash, biarkan state IDLE yang menangani reset.
+            if (learningFlow.currentState !== 'IDLE') {
+                 learningFlow.currentState = 'IDLE';
+                 learningFlow.runStateLogic();
+            }
             break;
     }
 }
@@ -357,7 +372,7 @@ function init() {
     ui.initUI();
     setupGlobalListeners();
     window.addEventListener('hashchange', handleRouteChange);
-    handleRouteChange();
+    handleRouteChange(); // Panggil sekali saat load untuk menentukan halaman awal
     console.log("Aplikasi Berotak Senku berhasil dimuat!");
 }
 
