@@ -12,7 +12,7 @@
 
 import { state } from './state.js';
 
-const GOOGLE_API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GOOGLE_API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 async function safeFetch(payload, functionName = 'unknown') {
     if (!state.settings.apiKey || state.settings.apiKey.trim() === '') {
