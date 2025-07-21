@@ -1,21 +1,23 @@
 /**
  * =======================================================================================
- * File: js/api.js (VERSI SUPERCHARGED - DENGAN PSIKOLOGI BELAJAR)
+ * File: js/api.js (VERSI FINAL UPGRADE - 21 Juli 2025)
  * =======================================================================================
  *
  * api.js: Lapisan Interaksi AI yang Ditingkatkan Secara Pedagogis
  *
- * FITUR UTAMA VERSI INI:
- * 1.  **Prompt Engineering Lanjutan**: Setiap prompt dirancang dengan peran, konteks, dan tujuan
- * yang jelas, berdasarkan teknik-teknik psikologi kognitif untuk memaksimalkan retensi.
- * 2.  **Struktur Output yang Diperkaya**: Flashcard tidak lagi hanya "istilah" dan "definisi",
- * tetapi mencakup analogi, contoh nyata, dan pertanyaan pemicu pemikiran kritis.
- * 3.  **Tingkat Kesulitan Bermakna**: Tingkat kesulitan kini memengaruhi *jenis* pertanyaan
- * (dari faktual hingga analitis), bukan hanya kedalaman materi.
- * 4.  **Penanganan Error Detail**: Fungsi `safeFetch` ditingkatkan untuk memberikan feedback
- * error yang lebih spesifik dan membantu kepada pengguna.
- * 5.  **Ekstensibilitas**: Kode ini dirancang agar mudah diperluas dengan fungsi-fungsi baru
- * di masa depan.
+ * PERUBAHAN UTAMA DI VERSI INI:
+ * 1.  **Fungsi `getChoices` Dirombak**: Kini AI bertugas memecah topik utama menjadi
+ * beberapa sub-topik konkret yang bisa dipilih langsung oleh pengguna, menghilangkan
+ * pilihan "level" yang ambigu.
+ * 2.  **Fungsi `getDeck` Supercharged**:
+ * - Menerima parameter `cardCount` untuk kontrol penuh atas jumlah kartu (5, 10, 15).
+ * - Menggunakan "Proses Berpikir" dua langkah yang memaksa AI untuk mengidentifikasi
+ * sub-topik spesifik terlebih dahulu sebelum membuat kartu, memastikan konten tidak
+ * terlalu umum atau dangkal.
+ * - Tingkat kesulitan kini secara aktif mengubah JENIS pertanyaan (faktual, konseptual,
+ * analitis) untuk kedalaman belajar yang sesungguhnya.
+ * 3.  **Penanganan Error Detail**: Fungsi `safeFetch` tetap tangguh untuk memberikan
+ * feedback error yang jelas dan membantu.
  *
  * =======================================================================================
  */
@@ -29,7 +31,7 @@ import { state } from './state.js';
 const GOOGLE_API_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
 // =====================================================================
-// FUNGSI INTI PEMANGGILAN API (INTERNAL) - LEBIH TANGGUH
+// FUNGSI INTI PEMANGGILAN API (INTERNAL) - TANGGUH & INFORMATIF
 // =====================================================================
 
 /**
@@ -76,7 +78,6 @@ async function safeFetch(payload, functionName = 'unknown') {
 
         const result = await response.json();
 
-        // Pengecekan respons yang lebih mendalam
         if (!result.candidates?.[0]?.content?.parts?.[0]?.text) {
             const finishReason = result.candidates?.[0]?.finishReason;
             let reasonText = "Alasan tidak diketahui.";
@@ -96,7 +97,6 @@ async function safeFetch(payload, functionName = 'unknown') {
             throw new Error(`Error pada [${functionName}]: ${reasonText}`);
         }
 
-        // Parsing JSON dari respons AI dengan penanganan error sendiri
         try {
             return JSON.parse(result.candidates[0].content.parts[0].text);
         } catch (e) {
@@ -105,30 +105,34 @@ async function safeFetch(payload, functionName = 'unknown') {
         }
 
     } catch (error) {
-        // Teruskan error yang sudah diformat atau error jaringan lainnya
         console.error(`Kesalahan fundamental pada Panggilan API di [${functionName}]:`, error);
         throw error;
     }
 }
 
 // =====================================================================
-// FUNGSI PUBLIK YANG DI-EKSPOR (DENGAN PROMPT YANG DISEMPURNAKAN)
+// FUNGSI PUBLIK YANG DI-EKSPOR
 // =====================================================================
 
 /**
- * (IMPROVED) Meminta 2 pilihan arah topik dari AI, fokus pada tujuan belajar yang jelas.
- * @param {string} topic - Topik dari pengguna.
- * @returns {Promise<object>} Objek dengan properti 'choices'.
+ * (UPGRADED) Meminta AI untuk memecah topik utama menjadi sub-topik konkret.
+ * @param {string} topic - Topik utama dari pengguna.
+ * @returns {Promise<object>} Objek dengan properti 'choices' yang berisi daftar sub-topik.
  */
 export async function getChoices(topic) {
-    const prompt = `Anda adalah seorang Desainer Pembelajaran (Instructional Designer).
-    Untuk topik utama: "${topic}", rancanglah 2 jalur belajar yang jelas dan menarik.
-    Tujuan Anda adalah membantu pengguna memilih FOKUS belajar mereka.
+    const prompt = `Anda adalah seorang Pakar Kurikulum.
+    Tugas Anda adalah memecah topik utama yang kompleks menjadi beberapa SUB-TOPIK INTI yang konkret dan dapat dipelajari.
 
-    1.  **Jalur 1 (Konsep Fundamental)**: Rancang judul dan deskripsi untuk pemula. Fokus pada "APA" dan "MENGAPA" konsep itu penting. Gunakan bahasa yang sangat sederhana dan memotivasi.
-    2.  **Jalur 2 (Aplikasi & Analisis)**: Rancang judul dan deskripsi untuk pelajar tingkat lanjut. Fokus pada "BAGAIMANA" konsep ini diterapkan atau dianalisis dalam sebuah skenario nyata. Tunjukkan manfaat praktisnya.
+    Topik Utama: "${topic}"
 
-    Hindari jargon. Buat deskripsi singkat (1-2 kalimat) namun menggugah rasa ingin tahu.`;
+    Instruksi:
+    1.  Identifikasi 4 hingga 5 sub-topik paling fundamental dan penting dari topik utama tersebut.
+    2.  Pilihan yang Anda berikan HARUS berupa topik spesifik, BUKAN jalur belajar abstrak seperti "level pemula" atau "analisis mendalam".
+    3.  Untuk setiap sub-topik, berikan judul (nama sub-topik itu sendiri) dan deskripsi singkat (1 kalimat) yang menjelaskan fokusnya.
+
+    Contoh:
+    - Jika Topik Utama adalah "Sejarah Indonesia", maka hasilnya bisa: "Masa Kerajaan Hindu-Buddha", "Masa Kesultanan Islam", "Era Kolonialisme", "Orde Lama & Orde Baru".
+    - Jika Topik Utama adalah "Pemrograman Web", maka hasilnya bisa: "HTML: Struktur Dasar", "CSS: Styling & Layout", "JavaScript: Interaktivitas", "Backend & Database".`;
 
     const schema = {
         type: "OBJECT",
@@ -138,8 +142,8 @@ export async function getChoices(topic) {
                 items: {
                     type: "OBJECT",
                     properties: {
-                        "title": { type: "STRING", description: "Judul jalur belajar yang menarik." },
-                        "description": { type: "STRING", description: "Deskripsi singkat (1-2 kalimat) yang menjelaskan fokus jalur belajar." }
+                        "title": { type: "STRING", description: "Nama sub-topik yang spesifik dan jelas." },
+                        "description": { type: "STRING", description: "Deskripsi 1 kalimat yang ringkas tentang sub-topik." }
                     },
                     required: ["title", "description"]
                 }
@@ -150,44 +154,46 @@ export async function getChoices(topic) {
 
     const payload = {
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.7 }
+        generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.5 }
     };
     return safeFetch(payload, 'getChoices');
 }
 
 /**
- * (UPGRADED) Meminta AI membuat ringkasan dan flashcards berdasarkan prinsip psikologi belajar.
- * Fungsi ini mengimplementasikan Elaborasi, Contoh Konkret, dan Active Recall.
+ * (SUPERCHARGED) Meminta AI membuat ringkasan dan flashcards yang mendalam.
+ * Fungsi ini memaksa AI untuk mengidentifikasi sub-topik sebelum membuat kartu.
  * @param {string} sourceMaterial - Topik atau teks dari file.
- * @param {'Mudah'|'Menengah'|'Sulit'} difficulty - Tingkat kesulitan yang memengaruhi jenis pertanyaan.
+ * @param {'Mudah'|'Menengah'|'Sulit'} difficulty - Tingkat kesulitan.
  * @param {'topic'|'file'} mode - Mode input.
+ * @param {number} cardCount - Jumlah kartu yang diinginkan pengguna.
  * @returns {Promise<object>} Objek dengan 'summary' dan 'flashcards' yang diperkaya.
  */
-export async function getDeck(sourceMaterial, difficulty, mode) {
-    const sourceInstruction = mode === 'topic' ? `topik "${sourceMaterial}"` : `teks berikut: "${sourceMaterial.substring(0, 3000)}"`;
+export async function getDeck(sourceMaterial, difficulty, mode, cardCount = 10) {
+    const sourceInstruction = mode === 'topic' ? `topik "${sourceMaterial}"` : `teks berikut: "${sourceMaterial.substring(0, 4000)}"`;
 
     const difficultyInstruction = {
-        'Mudah': 'Pertanyaan harus fokus pada definisi dan identifikasi (APA itu X?). Ini untuk menguji ingatan faktual.',
-        'Menengah': 'Pertanyaan harus meminta penjelasan atau perbandingan (JELASKAN mengapa X terjadi? APA bedanya X dan Y?). Ini untuk menguji pemahaman konsep.',
-        'Sulit': 'Pertanyaan harus berbasis skenario atau analisis (BAGAIMANA Anda akan menggunakan X untuk menyelesaikan masalah Y? APAKAH kelemahan dari X?). Ini untuk menguji kemampuan analisis dan aplikasi.'
+        'Mudah': 'Fokus pada definisi dasar (APA itu X?), identifikasi komponen utama, dan fakta-fakta kunci.',
+        'Menengah': 'Fokus pada proses (BAGAIMANA X bekerja?), fungsi (UNTUK APA X?), dan hubungan sebab-akibat (MENGAPA X menyebabkan Y?).',
+        'Sulit': 'Fokus pada analisis komparatif (APA perbedaan X dan Y?), aplikasi dalam skenario, dan implikasi atau konsekuensi (APA dampaknya jika X tidak ada?).'
     };
 
-    const prompt = `Anda adalah seorang Tutor AI yang menerapkan **The Feynman Technique**.
-    Tugas Anda adalah membuat paket belajar dari ${sourceInstruction}.
-    Jelaskan semuanya dengan bahasa yang **sangat sederhana**, seolah-olah Anda sedang mengajar seorang siswa SMA yang cerdas namun belum tahu apa-apa tentang topik ini.
+    const prompt = `Anda adalah seorang Pakar Materi Pelajaran yang bertugas memecah topik kompleks menjadi bagian-bagian yang mudah dipelajari.
 
-    Ikuti instruksi ini dengan SANGAT TELITI:
+    TUGAS ANDA:
+    Buat paket belajar dari ${sourceInstruction} dengan target ${cardCount} kartu belajar.
 
-    1.  **Ringkasan (summary)**: Buat ringkasan (3-4 kalimat) menggunakan teknik **Elaborasi**. Hubungkan konsep utama dengan sebuah **analogi atau contoh di dunia nyata** yang mudah dipahami. Tujuannya adalah memberikan "cantolan" memori.
+    PROSES BERPIKIR ANDA (WAJIB DIIKUTI):
+    1.  **Analisis Topik**: Pertama, identifikasi ${cardCount} sub-topik atau konsep paling PENTING dan SPESIFIK dari materi sumber. Jangan hanya mengambil judul umum. Contoh: Jika topik utama "Sistem Pernapasan", sub-topik bisa "Alveolus", "Proses Pertukaran Gas", "Diafragma", bukan hanya "Paru-paru".
+    2.  **Pembuatan Kartu**: Untuk setiap sub-topik yang telah Anda identifikasi, buat satu flashcard.
+    3.  **Penyesuaian Kedalaman**: Isi setiap flashcard sesuai dengan tingkat kesulitan "${difficulty}": ${difficultyInstruction[difficulty]}.
 
-    2.  **Flashcards (flashcards)**: Buat TEPAT 5 flashcard. Setiap flashcard adalah sebuah "objek belajar" yang kaya dan HARUS berisi:
-        * **term**: Satu istilah kunci atau konsep penting (maksimal 4 kata).
-        * **simple_definition**: Definisi yang LUGAS, PADAT, dan **100% BEBAS JARGON**.
-        * **analogy_or_example**: Sebuah analogi yang mudah diingat ATAU contoh penerapan nyata dari istilah tersebut. Ini WAJIB ada.
-        * **active_recall_question**: Sebuah **pertanyaan terbuka** yang memaksa otak untuk berpikir, BUKAN pertanyaan isian '____'. Jenis pertanyaan harus sesuai dengan tingkat kesulitan "${difficulty}": ${difficultyInstruction[difficulty]}.
-        * **question_clue**: Petunjuk satu kata untuk membantu jika pengguna kesulitan menjawab 'active_recall_question'.
-
-    Pastikan hasil akhir adalah ringkasan dan 5 flashcard yang saling mendukung dan fokus pada informasi paling krusial.`;
+    STRUKTUR OUTPUT JSON:
+    Setiap flashcard HARUS berisi:
+    - **term**: Nama sub-topik atau konsep spesifik yang Anda identifikasi.
+    - **simple_definition**: Penjelasan yang LUGAS, PADAT, dan 100% BEBAS JARGON tentang 'term' tersebut.
+    - **analogy_or_example**: Analogi yang relevan atau contoh nyata untuk membuat konsep mudah diingat.
+    - **active_recall_question**: Pertanyaan terbuka yang memicu pemikiran kritis sesuai tingkat kesulitan yang diminta.
+    - **question_clue**: Petunjuk satu kata untuk pertanyaan tersebut.`;
 
     const schema = {
         type: "OBJECT",
@@ -206,8 +212,8 @@ export async function getDeck(sourceMaterial, difficulty, mode) {
                     },
                     required: ["term", "simple_definition", "analogy_or_example", "active_recall_question", "question_clue"]
                 },
-                minItems: 5,
-                maxItems: 5
+                minItems: cardCount,
+                maxItems: cardCount
             }
         },
         required: ["summary", "flashcards"]
