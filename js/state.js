@@ -4,8 +4,10 @@
  * =====================================================================
  *
  * state.js: Sumber Kebenaran Tunggal (Single Source of Truth)
- * * PERBAIKAN: Menambahkan actions untuk CRUD (Create, Read, Update, Delete)
- * pada dek dan kartu agar terintegrasi penuh dengan deck.js.
+ * * PERBAIKAN: Menambahkan 'currentDeckName' untuk melacak dek yang sedang 
+ * dipelajari, memungkinkan fitur Spaced Repetition berfungsi dengan benar.
+ * * PERBAIKAN: Menambahkan actions untuk CRUD pada dek dan kartu agar 
+ * terintegrasi penuh dengan deck.js.
  * * PERBAIKAN: Menyesuaikan cara tema diterapkan agar cocok dengan file style.css.
  */
 
@@ -24,6 +26,7 @@ export const state = {
         currentCardIndex: 0,
         score: 0,
         sourceText: '',
+        currentDeckName: null, // <-- Untuk melacak dek yang sedang dipelajari
     },
     // Properti ini akan menampung semua dek kartu yang disimpan pengguna
     userData: {
@@ -52,6 +55,9 @@ export const actions = {
         state.quiz.topic = topic;
         state.quiz.difficulty = difficulty;
     },
+    setCurrentDeckName(deckName) {
+        state.quiz.currentDeckName = deckName;
+    },
     setSourceText(text) {
         state.quiz.sourceText = text;
     },
@@ -71,6 +77,7 @@ export const actions = {
         state.quiz.currentCardIndex = 0;
         state.quiz.score = 0;
         state.quiz.sourceText = '';
+        state.quiz.currentDeckName = null; // Reset nama dek juga
     },
 
     // --- Actions untuk Pengaturan ---
